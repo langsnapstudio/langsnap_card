@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.langsnap-card"
     },
     "android": {
       "adaptiveIcon": {
@@ -35,7 +36,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#7D69AB"
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
