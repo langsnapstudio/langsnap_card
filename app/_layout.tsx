@@ -23,12 +23,16 @@ function RootLayoutNav() {
     if (!session) {
       if (!inSignIn) router.replace('/sign-in');
     } else if (!profile?.username) {
-      if (!inOnboarding) router.replace('/onboarding/username');
+      // Need username → go there unless already on it
+      if (segments[1] !== 'username') router.replace('/onboarding/username');
     } else if (!profile?.target_language) {
-      if (!inOnboarding) router.replace('/onboarding/language');
+      // Have username, need language → go there unless already on it
+      if (segments[1] !== 'language') router.replace('/onboarding/language');
     } else if (profile?.target_language === 'taiwan' && !profile?.reading_system) {
-      if (!inOnboarding) router.replace('/onboarding/reading');
+      // Taiwan user needs reading system → go there unless already on it
+      if (segments[1] !== 'reading') router.replace('/onboarding/reading');
     } else {
+      // All done → go to tabs
       if (inSignIn || inOnboarding) router.replace('/(tabs)');
     }
   }, [session, profile, loading]);
