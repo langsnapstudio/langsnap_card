@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Alert } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import type { Session, User } from '@supabase/supabase-js';
 
@@ -106,6 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    await AsyncStorage.removeItem('langsnap:welcome_shown');
     await supabase.auth.signOut();
     setProfile(null);
   };

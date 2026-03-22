@@ -69,15 +69,28 @@ function WelcomeSheet({ visible, onClose }: { visible: boolean; onClose: () => v
           />
         </View>
 
-        <Text style={styles.welcomeTitle}>Welcome to Langsnap! 👋</Text>
-        <Text style={styles.welcomeBody}>
-          Hey there! I'm so glad you're here.{'\n\n'}
-          I built Langsnap to make learning Chinese feel natural and fun — one word at a time.{'\n\n'}
-          Pick a deck that catches your eye and dive in. Enjoy the journey! 🌟
-        </Text>
+        <Text style={styles.welcomeTitle}>{'Welcome to Langsnap!'}</Text>
+
+        <View style={styles.bodyBlock}>
+          <Text style={styles.welcomeBody}>
+            {"Hey, I'm Septymo\nDesigner. Language learner. Solo creator of this app."}
+          </Text>
+
+          <Text style={[styles.welcomeBody, styles.bodyPara]}>
+            {'I built this app because I wanted a more enjoyable and memorable way to learn vocabulary. With 500+ hand-drawn illustrated flashcards, I believe it can help you learn more effectively — and have more fun doing it, just like it did for me.'}
+          </Text>
+
+          <Text style={[styles.welcomeBody, styles.bodyPara]}>
+            {"By being here, you're supporting not just a language app, but every crafted illustration I poured into it. Thank you — it means everything."}
+          </Text>
+
+          <Text style={[styles.welcomeBody, styles.bodyPara]}>
+            {'Now — pick a deck that catches your eye and dive in. Enjoy the journey!'}
+          </Text>
+        </View>
 
         <TouchableOpacity style={styles.welcomeBtn} onPress={handleClose} activeOpacity={0.85}>
-          <Text style={styles.welcomeBtnText}>Let's start learning!</Text>
+          <Text style={styles.welcomeBtnText}>{"Let's start learning!"}</Text>
         </TouchableOpacity>
       </Animated.View>
     </Modal>
@@ -100,6 +113,10 @@ export default function LearnScreen() {
     });
   }, []);
 
+  const handleWelcomeClose = () => {
+    setShowWelcome(false);
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -108,7 +125,7 @@ export default function LearnScreen() {
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>
-              Hi, {profile?.display_name?.split(' ')[0] ?? 'there'} 👋
+              {'Hi, '}{profile?.display_name?.split(' ')[0] ?? 'there'}
             </Text>
             <Text style={styles.subGreeting}>What do you want to learn today?</Text>
           </View>
@@ -141,7 +158,7 @@ export default function LearnScreen() {
 
       </ScrollView>
 
-      <WelcomeSheet visible={showWelcome} onClose={() => setShowWelcome(false)} />
+      <WelcomeSheet visible={showWelcome} onClose={handleWelcomeClose} />
     </SafeAreaView>
   );
 }
@@ -187,22 +204,25 @@ const styles = StyleSheet.create({
     backgroundColor: WHITE,
     borderTopLeftRadius: 28, borderTopRightRadius: 28,
     paddingHorizontal: 24, paddingBottom: 40, paddingTop: 12,
-    alignItems: 'center',
   },
   sheetHandle: {
     width: 40, height: 4, borderRadius: 2,
     backgroundColor: '#E0DDD8', marginBottom: 28,
+    alignSelf: 'center',
   },
   creatorAvatar: {
     width: 88, height: 88, borderRadius: 44,
     backgroundColor: '#F5C842',
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: 20,
-    overflow: 'hidden',
+    marginBottom: 20, overflow: 'hidden',
+    alignSelf: 'center',
   },
-  creatorImage:   { width: 70, height: 70 },
-  welcomeTitle:   { fontSize: 22, color: TEXT_DARK, fontFamily: 'Volte-Bold', marginBottom: 16, textAlign: 'center' },
-  welcomeBody:    { fontSize: 15, lineHeight: 24, color: TEXT_MUTED, fontFamily: 'Volte', textAlign: 'center', marginBottom: 28 },
+  creatorImage: { width: 70, height: 70 },
+
+  welcomeTitle: { fontSize: 22, color: TEXT_DARK, fontFamily: 'Volte-Bold', textAlign: 'center', marginBottom: 16 },
+  bodyBlock:    { marginBottom: 28 },
+  bodyPara:     { marginTop: 14 },
+  welcomeBody:  { fontSize: 15, lineHeight: 24, color: TEXT_MUTED, fontFamily: 'Volte', textAlign: 'center' },
   welcomeBtn: {
     width: '100%', height: 52, borderRadius: 14,
     backgroundColor: BRAND_PURPLE,

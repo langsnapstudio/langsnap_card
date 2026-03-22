@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -11,31 +12,16 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
-const BRAND_PURPLE  = '#7D69AB';
-const BG_CREAM      = '#F8F5EF';
-const TEXT_DARK     = '#262626';
-const TEXT_MUTED    = '#9097A3';
-const BORDER_DEFAULT = '#CFD4DC';
-const TOTAL_STEPS   = 3;
+const BRAND_PURPLE    = '#7D69AB';
+const BG_CREAM        = '#F8F5EF';
+const TEXT_DARK       = '#262626';
+const BORDER_DEFAULT  = '#E5E5E5';
+const BORDER_SELECTED = '#4B6FD0';
 
-const LANGUAGES = [
-  { id: 'mainland', label: 'Mandarin Chinese (Mainland)', flag: '🇨🇳' },
-  { id: 'taiwan',   label: 'Mandarin Chinese (Taiwan)',   flag: '🇹🇼' },
+const LANGUAGES: { id: string; label: string; flag: any }[] = [
+  { id: 'mainland', label: 'Mandarin Chinese (Mainland)', flag: require('@/assets/images/flag-mainland.png') },
+  { id: 'taiwan',   label: 'Mandarin Chinese (Taiwan)',   flag: require('@/assets/images/flag-taiwan.png') },
 ];
-
-// ── Sub-components ─────────────────────────────────────────────────────────────
-function ProgressBar({ total, step }: { total: number; step: number }) {
-  return (
-    <View style={styles.progressBar}>
-      {Array.from({ length: total }).map((_, i) => (
-        <View
-          key={i}
-          style={[styles.progressSegment, { backgroundColor: i < step ? BRAND_PURPLE : '#D9D5E4' }]}
-        />
-      ))}
-    </View>
-  );
-}
 
 // ── Screen ─────────────────────────────────────────────────────────────────────
 export default function LanguageScreen() {
@@ -47,7 +33,6 @@ export default function LanguageScreen() {
     if (!user || !selected) return;
     setSaving(true);
 
-    // For mainland users, set reading_system to 'pinyin' automatically
     const updates: Record<string, string> = { target_language: selected };
     if (selected === 'mainland') updates.reading_system = 'pinyin';
 
@@ -59,15 +44,13 @@ export default function LanguageScreen() {
     if (error) { console.error(error.message); setSaving(false); return; }
     await refreshProfile();
     // _layout.tsx guard handles routing:
-    // - mainland → goes to (tabs) since reading_system is now set
-    // - taiwan → goes to /onboarding/reading
+    // - mainland → (tabs) since reading_system is now set
+    // - taiwan   → /onboarding/reading
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-
-        <ProgressBar total={TOTAL_STEPS} step={2} />
 
         <Text style={styles.heading}>What language do you want to learn?</Text>
 
@@ -79,15 +62,12 @@ export default function LanguageScreen() {
                 key={lang.id}
                 style={[styles.option, isSelected && styles.optionSelected]}
                 onPress={() => setSelected(lang.id)}
-                activeOpacity={0.8}
+                activeOpacity={0.75}
               >
-                <Text style={styles.optionFlag}>{lang.flag}</Text>
-                <Text style={[styles.optionLabel, isSelected && styles.optionLabelSelected]}>
-                  {lang.label}
-                </Text>
-                <View style={[styles.radio, isSelected && styles.radioSelected]}>
-                  {isSelected && <View style={styles.radioDot} />}
-                </View>
+                {lang.flag && (
+                  <Image source={lang.flag} style={styles.optionFlag} />
+                )}
+                <Text style={styles.optionLabel}>{lang.label}</Text>
               </TouchableOpacity>
             );
           })}
@@ -115,47 +95,36 @@ export default function LanguageScreen() {
 // ── Styles ─────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safeArea:  { flex: 1, backgroundColor: BG_CREAM },
-
-  container: { flex: 1, paddingHorizontal: 24, paddingTop: 20 },
-
-  progressBar:     { flexDirection: 'row', gap: 6, marginBottom: 28 },
-  progressSegment: { flex: 1, height: 4, borderRadius: 2 },
+  container: { flex: 1, paddingHorizontal: 24, paddingTop: 48 },
 
   heading: {
-    fontSize: 26, lineHeight: 34,
+    fontSize: 28, lineHeight: 36,
     color: TEXT_DARK, fontFamily: 'Volte-Bold',
-    marginBottom: 40,
+    marginBottom: 36,
   },
 
   optionList: { gap: 12 },
+
   option: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 14, borderWidth: 1.5,
+    borderRadius: 12, borderWidth: 1,
     borderColor: BORDER_DEFAULT,
-    paddingHorizontal: 16, paddingVertical: 16,
+    paddingHorizontal: 16, paddingVertical: 18,
   },
   optionSelected: {
-    borderColor: BRAND_PURPLE,
-    backgroundColor: 'rgba(125,105,171,0.06)',
+    borderColor: BORDER_SELECTED,
   },
-  optionFlag:  { fontSize: 22, marginRight: 12 },
-  optionLabel: { flex: 1, fontSize: 16, color: TEXT_DARK, fontFamily: 'Volte-Medium' },
-  optionLabelSelected: { color: BRAND_PURPLE, fontFamily: 'Volte-Semibold' },
 
-  radio: {
-    width: 22, height: 22, borderRadius: 11,
-    borderWidth: 2, borderColor: BORDER_DEFAULT,
+  optionFlag:  { width: 28, height: 28, marginRight: 14, borderRadius: 4 },
+  optionLabel: { fontSize: 16, color: TEXT_DARK, fontFamily: 'Volte-Medium', flex: 1 },
+
+  footer: { paddingHorizontal: 24, paddingBottom: 36 },
+  continueBtn: {
+    height: 56, borderRadius: 14,
+    backgroundColor: BRAND_PURPLE,
     alignItems: 'center', justifyContent: 'center',
   },
-  radioSelected: { borderColor: BRAND_PURPLE },
-  radioDot: {
-    width: 11, height: 11, borderRadius: 6,
-    backgroundColor: BRAND_PURPLE,
-  },
-
-  footer:              { paddingHorizontal: 24, paddingBottom: 34 },
-  continueBtn:         { height: 52, borderRadius: 14, backgroundColor: BRAND_PURPLE, alignItems: 'center', justifyContent: 'center' },
   continueBtnDisabled: { opacity: 0.4 },
-  continueBtnText:     { fontSize: 17, color: '#FFFFFF', fontFamily: 'Volte-Semibold' },
+  continueBtnText: { fontSize: 17, color: '#FFFFFF', fontFamily: 'Volte-Semibold' },
 });

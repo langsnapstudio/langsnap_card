@@ -12,12 +12,12 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
-const BRAND_PURPLE   = '#7D69AB';
-const BG_CREAM       = '#F8F5EF';
-const TEXT_DARK      = '#262626';
-const TEXT_MUTED     = '#9097A3';
-const BORDER_DEFAULT = '#CFD4DC';
-const TOTAL_STEPS    = 3;
+const BRAND_PURPLE    = '#7D69AB';
+const BG_CREAM        = '#F8F5EF';
+const TEXT_DARK       = '#262626';
+const TEXT_MUTED      = '#737373';
+const BORDER_DEFAULT  = '#E5E5E5';
+const BORDER_SELECTED = '#4B6FD0';
 
 const READING_SYSTEMS = [
   {
@@ -34,23 +34,9 @@ const READING_SYSTEMS = [
   },
 ];
 
-// ── Sub-components ─────────────────────────────────────────────────────────────
-function ProgressBar({ total, step }: { total: number; step: number }) {
-  return (
-    <View style={styles.progressBar}>
-      {Array.from({ length: total }).map((_, i) => (
-        <View
-          key={i}
-          style={[styles.progressSegment, { backgroundColor: i < step ? BRAND_PURPLE : '#D9D5E4' }]}
-        />
-      ))}
-    </View>
-  );
-}
-
 // ── Screen ─────────────────────────────────────────────────────────────────────
 export default function ReadingScreen() {
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const router = useRouter();
   const [selected, setSelected] = useState<string | null>(null);
   const [saving, setSaving]     = useState(false);
@@ -66,29 +52,19 @@ export default function ReadingScreen() {
 
     if (error) { console.error(error.message); setSaving(false); return; }
     await refreshProfile();
-    // _layout.tsx guard routes to (tabs) now that all fields are set
+    // _layout.tsx guard routes to (tabs) once all fields are set
   };
-
-  const languageLabel =
-    profile?.target_language === 'taiwan'
-      ? 'Mandarin Chinese (Taiwan) 🇹🇼'
-      : 'Mandarin Chinese (Mainland) 🇨🇳';
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
 
-        <ProgressBar total={TOTAL_STEPS} step={3} />
+        {/* Back to language */}
+        <TouchableOpacity onPress={() => router.replace('/onboarding/language')} style={styles.backRow} hitSlop={12}>
+          <Text style={styles.backLink}>← Mandarin Chinese (Taiwan)</Text>
+        </TouchableOpacity>
 
-        {/* Language confirmation row */}
-        <View style={styles.langRow}>
-          <Text style={styles.langLabel}>{languageLabel}</Text>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
-            <Text style={styles.changeLink}>Change</Text>
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.heading}>How do you prefer reading system?</Text>
+        <Text style={styles.heading}>How do you prefer to read?</Text>
         <Text style={styles.subheading}>This can be changed later in Settings.</Text>
 
         <View style={styles.optionList}>
@@ -99,20 +75,11 @@ export default function ReadingScreen() {
                 key={sys.id}
                 style={[styles.option, isSelected && styles.optionSelected]}
                 onPress={() => setSelected(sys.id)}
-                activeOpacity={0.8}
+                activeOpacity={0.75}
               >
-                <View style={styles.optionText}>
-                  <Text style={[styles.optionLabel, isSelected && styles.optionLabelSelected]}>
-                    {sys.label}
-                  </Text>
-                  <Text style={styles.optionDesc}>{sys.desc}</Text>
-                  <Text style={[styles.optionExample, isSelected && styles.optionExampleSelected]}>
-                    {sys.example}
-                  </Text>
-                </View>
-                <View style={[styles.radio, isSelected && styles.radioSelected]}>
-                  {isSelected && <View style={styles.radioDot} />}
-                </View>
+                <Text style={styles.optionLabel}>{sys.label}</Text>
+                <Text style={styles.optionDesc}>{sys.desc}</Text>
+                <Text style={styles.optionExample}>{sys.example}</Text>
               </TouchableOpacity>
             );
           })}
@@ -140,57 +107,44 @@ export default function ReadingScreen() {
 // ── Styles ─────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safeArea:  { flex: 1, backgroundColor: BG_CREAM },
+  container: { flex: 1, paddingHorizontal: 24, paddingTop: 32 },
 
-  container: { flex: 1, paddingHorizontal: 24, paddingTop: 20 },
+  backRow:   { marginBottom: 28 },
+  backLink:  { fontSize: 14, color: BRAND_PURPLE, fontFamily: 'Volte-Medium' },
 
-  progressBar:     { flexDirection: 'row', gap: 6, marginBottom: 28 },
-  progressSegment: { flex: 1, height: 4, borderRadius: 2 },
-
-  langRow: {
-    flexDirection: 'row', alignItems: 'center',
-    marginBottom: 20,
+  heading: {
+    fontSize: 28, lineHeight: 36,
+    color: TEXT_DARK, fontFamily: 'Volte-Bold',
+    marginBottom: 8,
   },
-  langLabel: {
-    flex: 1, fontSize: 14,
-    color: TEXT_DARK, fontFamily: 'Volte-Medium',
+  subheading: {
+    fontSize: 14, color: TEXT_MUTED,
+    fontFamily: 'Volte', marginBottom: 32,
   },
-  changeLink: {
-    fontSize: 14, color: BRAND_PURPLE, fontFamily: 'Volte-Semibold',
-  },
-
-  heading:    { fontSize: 26, lineHeight: 34, color: TEXT_DARK, fontFamily: 'Volte-Bold', marginBottom: 8 },
-  subheading: { fontSize: 14, color: TEXT_MUTED, fontFamily: 'Volte', marginBottom: 32 },
 
   optionList: { gap: 12 },
+
   option: {
-    flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 14, borderWidth: 1.5,
+    borderRadius: 12, borderWidth: 1,
     borderColor: BORDER_DEFAULT,
-    paddingHorizontal: 16, paddingVertical: 16,
+    paddingHorizontal: 16, paddingVertical: 18,
+    gap: 4,
   },
   optionSelected: {
-    borderColor: BRAND_PURPLE,
-    backgroundColor: 'rgba(125,105,171,0.06)',
+    borderColor: BORDER_SELECTED,
   },
-  optionText:  { flex: 1, gap: 3 },
-  optionLabel: { fontSize: 16, color: TEXT_DARK, fontFamily: 'Volte-Semibold' },
-  optionLabelSelected: { color: BRAND_PURPLE },
-  optionDesc:  { fontSize: 13, color: TEXT_MUTED, fontFamily: 'Volte' },
+
+  optionLabel:   { fontSize: 16, color: TEXT_DARK, fontFamily: 'Volte-Semibold' },
+  optionDesc:    { fontSize: 13, color: TEXT_MUTED, fontFamily: 'Volte' },
   optionExample: { fontSize: 15, color: TEXT_MUTED, fontFamily: 'Volte-Medium', marginTop: 4 },
-  optionExampleSelected: { color: BRAND_PURPLE },
 
-  radio: {
-    width: 22, height: 22, borderRadius: 11,
-    borderWidth: 2, borderColor: BORDER_DEFAULT,
+  footer: { paddingHorizontal: 24, paddingBottom: 36 },
+  continueBtn: {
+    height: 56, borderRadius: 14,
+    backgroundColor: BRAND_PURPLE,
     alignItems: 'center', justifyContent: 'center',
-    marginLeft: 12,
   },
-  radioSelected: { borderColor: BRAND_PURPLE },
-  radioDot: { width: 11, height: 11, borderRadius: 6, backgroundColor: BRAND_PURPLE },
-
-  footer:              { paddingHorizontal: 24, paddingBottom: 34 },
-  continueBtn:         { height: 52, borderRadius: 14, backgroundColor: BRAND_PURPLE, alignItems: 'center', justifyContent: 'center' },
   continueBtnDisabled: { opacity: 0.4 },
-  continueBtnText:     { fontSize: 17, color: '#FFFFFF', fontFamily: 'Volte-Semibold' },
+  continueBtnText: { fontSize: 17, color: '#FFFFFF', fontFamily: 'Volte-Semibold' },
 });

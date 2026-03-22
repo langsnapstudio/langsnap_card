@@ -28,8 +28,7 @@ const BORDER_DEFAULT = '#E5E5E5';   // rgb(229,229,229)
 const SUCCESS        = '#3DAB69';
 const ERROR_RED      = '#E53E3E';
 
-const USERNAME_REGEX = /^[a-zA-Z0-9]+$/;
-const TOTAL_STEPS    = 3;
+const USERNAME_REGEX = /^[a-z0-9]+$/;
 
 // ── Avatars ────────────────────────────────────────────────────────────────────
 // Images already include their background color (square, gets clipped to circle)
@@ -75,23 +74,6 @@ const AVATARS: AvatarItem[] = [
   { id: 'beer',        fallbackBg: '#F5A623' },
 ];
 
-// ── Progress bar ───────────────────────────────────────────────────────────────
-function ProgressBar({ total, step }: { total: number; step: number }) {
-  return (
-    <View style={styles.progressBar}>
-      {Array.from({ length: total }).map((_, i) => (
-        <View
-          key={i}
-          style={[
-            styles.progressSegment,
-            { backgroundColor: i < step ? BRAND_PURPLE : '#FFFFFF' },
-          ]}
-        />
-      ))}
-    </View>
-  );
-}
-
 // ── Avatar circle ──────────────────────────────────────────────────────────────
 // Images are square with baked-in background — clip to circle via overflow:hidden
 function AvatarCircle({ avatar, size = 120 }: { avatar: AvatarItem; size?: number }) {
@@ -130,29 +112,30 @@ export default function UsernameScreen() {
   const [saving, setSaving]             = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState<AvatarItem>(AVATARS[0]);
   const [pickerVisible, setPickerVisible]   = useState(false);
-  const [tempAvatar, setTempAvatar]     = useState<AvatarItem>(AVATARS[0]);
+  const [nameFocused, setNameFocused]       = useState(false);
+  const [usernameFocused, setUsernameFocused] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Validation ───────────────────────────────────────────────────────────────
   const validateUsername = useCallback(async (value: string) => {
     const trimmed = value.trim();
-    if (trimmed.length < 5) { setValidation('invalid'); setValidationMsg('At least 5 characters'); return; }
-    if (trimmed.length > 20) { setValidation('invalid'); setValidationMsg('Maximum 20 characters'); return; }
-    if (!USERNAME_REGEX.test(trimmed)) { setValidation('invalid'); setValidationMsg('Letters and numbers only'); return; }
+    if (trimmed.length < 5 || trimmed.length > 20) { setValidation('invalid'); setValidationMsg('Username must be 5-20 characters'); return; }
+    if (!USERNAME_REGEX.test(trimmed)) { setValidation('invalid'); setValidationMsg('a-z alphabets and numbers only'); return; }
 
     setValidation('checking'); setValidationMsg('Checking…');
     const { data, error } = await supabase.from('profiles').select('username').eq('username', trimmed.toLowerCase()).maybeSingle();
     if (error) { setValidation('idle'); setValidationMsg(''); return; }
     if (data) {
-      setValidation('taken'); setValidationMsg('@' + trimmed + ' is already taken');
+      setValidation('taken'); setValidationMsg('This username is already taken.');
     } else {
-      setValidation('available'); setValidationMsg('@' + trimmed + ' is available ✓');
+      setValidation('available'); setValidationMsg('');
     }
   }, []);
 
   const handleUsernameChange = (value: string) => {
-    const cleaned = value.replace(/\s/g, '');
+    // Strip anything that isn't a-z or 0-9, and auto-lowercase
+    const cleaned = value.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
     setUsername(cleaned);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (cleaned.length === 0) { setValidation('idle'); setValidationMsg(''); return; }
@@ -174,14 +157,23 @@ export default function UsernameScreen() {
 
   const canContinue = displayName.trim().length > 0 && validation === 'available' && !saving;
 
-  const borderColor = () => {
+  // ── Input border helpers ─────────────────────────────────────────────────────
+  const nameBorderColor  = nameFocused ? BRAND_PURPLE : BORDER_DEFAULT;
+  const nameBorderWidth  = 1;
+
+  const isUsernameError = validation === 'taken' || validation === 'invalid';
+  const usernameBorderColor = () => {
+    if (!usernameFocused) {
+      return isUsernameError ? ERROR_RED : BORDER_DEFAULT;
+    }
     if (validation === 'available') return SUCCESS;
-    if (validation === 'taken' || validation === 'invalid') return ERROR_RED;
-    return BORDER_DEFAULT;
+    if (isUsernameError) return ERROR_RED;
+    return BRAND_PURPLE;
   };
+  const usernameBorderWidth = 1;
   const msgColor = () => {
     if (validation === 'available') return SUCCESS;
-    if (validation === 'taken' || validation === 'invalid') return ERROR_RED;
+    if (isUsernameError) return ERROR_RED;
     return TEXT_SECONDARY;
   };
 
@@ -191,15 +183,13 @@ export default function UsernameScreen() {
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
 
         <View style={styles.container}>
-          <ProgressBar total={TOTAL_STEPS} step={1} />
-
           <Text style={styles.heading}>Set up your profile</Text>
           <Text style={styles.subheading}>This is how other learners will see you.</Text>
 
           {/* Avatar */}
           <TouchableOpacity
             style={styles.avatarWrapper}
-            onPress={() => { setTempAvatar(selectedAvatar); setPickerVisible(true); }}
+            onPress={() => setPickerVisible(true)}
             activeOpacity={0.9}
           >
             <AvatarCircle avatar={selectedAvatar} size={120} />
@@ -212,9 +202,11 @@ export default function UsernameScreen() {
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>Name</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { borderColor: nameBorderColor, borderWidth: nameBorderWidth }]}
               value={displayName}
               onChangeText={setDisplayName}
+              onFocus={() => setNameFocused(true)}
+              onBlur={() => setNameFocused(false)}
               placeholder="Your name"
               placeholderTextColor={TEXT_PLACEHOLDER}
               autoCapitalize="words"
@@ -226,33 +218,39 @@ export default function UsernameScreen() {
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>
               <Text style={styles.fieldLabelBold}>Username </Text>
-              <Text style={styles.fieldLabelNote}>(cannot be changed after this step)</Text>
+              <Text style={styles.fieldLabelNote}>(Cannot be changed after this step)</Text>
             </Text>
-            <View style={[styles.inputRow, { borderColor: borderColor() }]}>
+            <View style={[styles.inputRow, { borderColor: usernameBorderColor(), borderWidth: usernameBorderWidth }]}>
               <Text style={styles.atSign}>@</Text>
               <TextInput
                 style={styles.usernameInput}
                 value={username}
                 onChangeText={handleUsernameChange}
+                onFocus={() => setUsernameFocused(true)}
+                onBlur={() => setUsernameFocused(false)}
                 placeholder="yourusername"
                 placeholderTextColor={TEXT_PLACEHOLDER}
                 autoCapitalize="none"
                 autoCorrect={false}
+                spellCheck={false}
+                keyboardType="ascii-capable"
                 returnKeyType="done"
                 maxLength={20}
               />
               {validation === 'checking' && (
-                <ActivityIndicator size="small" color={TEXT_PLACEHOLDER} />
+                <ActivityIndicator size="small" color={TEXT_PLACEHOLDER} style={{ marginLeft: 8 }} />
+              )}
+              {validation === 'available' && (
+                <Ionicons name="checkmark-circle" size={20} color={SUCCESS} style={{ marginLeft: 8 }} />
               )}
             </View>
             {validationMsg.length > 0 ? (
               <Text style={[styles.validationMsg, { color: msgColor() }]}>{validationMsg}</Text>
-            ) : (
-              <View style={styles.hintBlock}>
-                <Text style={styles.hintLine}>• 5–20 characters</Text>
-                <Text style={styles.hintLine}>• a-z alphabets and numbers only</Text>
-              </View>
-            )}
+            ) : null}
+            <View style={styles.hintBlock}>
+              <Text style={styles.hintLine}>• 5–20 Characters</Text>
+              <Text style={styles.hintLine}>• A-Z alphabets and numbers only</Text>
+            </View>
           </View>
         </View>
 
@@ -285,23 +283,14 @@ export default function UsernameScreen() {
             contentContainerStyle={styles.grid}
             renderItem={({ item }) => (
               <TouchableOpacity
-                style={[styles.gridCell, tempAvatar.id === item.id && styles.gridCellSelected]}
-                onPress={() => setTempAvatar(item)}
+                style={[styles.gridCell, selectedAvatar.id === item.id && styles.gridCellSelected]}
+                onPress={() => { setSelectedAvatar(item); setPickerVisible(false); }}
                 activeOpacity={0.8}
               >
                 <AvatarCircle avatar={item} size={68} />
               </TouchableOpacity>
             )}
           />
-          <View style={styles.pickerFooter}>
-            <TouchableOpacity
-              style={styles.btn}
-              onPress={() => { setSelectedAvatar(tempAvatar); setPickerVisible(false); }}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.btnText}>Save</Text>
-            </TouchableOpacity>
-          </View>
         </View>
       </Modal>
     </SafeAreaView>
@@ -314,10 +303,6 @@ const styles = StyleSheet.create({
   flex:  { flex: 1 },
 
   container: { flex: 1, paddingHorizontal: 16, paddingTop: 10 },
-
-  // Progress bar — exact Figma: h=6, gap=8, inactive=white, pill radius
-  progressBar:     { flexDirection: 'row', gap: 8, marginBottom: 22 },
-  progressSegment: { flex: 1, height: 6, borderRadius: 999 },
 
   // Heading — 24px Semibold, #262626, lineH 32
   heading: {
@@ -347,16 +332,16 @@ const styles = StyleSheet.create({
   // Fields — gap 24 between them
   fieldGroup: { marginBottom: 24 },
 
-  // Label — 14px, #525252
-  fieldLabel:     { fontSize: 14, lineHeight: 16, color: TEXT_SECONDARY, fontFamily: 'Volte', marginBottom: 8 },
+  // Label — 14px Semibold, #525252
+  fieldLabel:     { fontSize: 14, lineHeight: 16, color: TEXT_SECONDARY, fontFamily: 'Volte-Semibold', marginBottom: 8 },
   fieldLabelBold: { fontFamily: 'Volte-Semibold' },
   fieldLabelNote: { fontFamily: 'Volte' },
 
-  // Input — h=40, border 1px #E5E5E5, radius 8, white bg, padding h=12 v=10
+  // Input — h=40, radius 8, white bg; border is applied inline (1px default → 2px focused/error)
   input: {
     height: 40, borderRadius: 8, borderWidth: 1,
     borderColor: BORDER_DEFAULT,
-    paddingHorizontal: 12, paddingVertical: 9.5,
+    paddingHorizontal: 12,
     fontSize: 14, color: TEXT_DARK, fontFamily: 'Volte',
     backgroundColor: '#FFFFFF',
   },
@@ -375,10 +360,11 @@ const styles = StyleSheet.create({
     fontSize: 14, color: TEXT_DARK, fontFamily: 'Volte',
   },
 
-  // Validation / hints — 14px #525252
-  validationMsg: { marginTop: 6, fontSize: 12, fontFamily: 'Volte-Medium' },
-  hintBlock:     { marginTop: 8, gap: 2 },
-  hintLine:      { fontSize: 14, lineHeight: 16, color: TEXT_SECONDARY, fontFamily: 'Volte' },
+  // Validation message (error / success / checking)
+  validationMsg: { marginTop: 6, fontSize: 12, lineHeight: 16, fontFamily: 'Volte-Medium' },
+  // Hints — separate info block with larger gap
+  hintBlock: { marginTop: 20, gap: 4 },
+  hintLine:  { fontSize: 13, lineHeight: 18, color: TEXT_SECONDARY, fontFamily: 'Volte' },
 
   // Footer — button pinned bottom
   footer: { paddingHorizontal: 16, paddingBottom: 34 },
@@ -408,5 +394,4 @@ const styles = StyleSheet.create({
   grid:          { paddingHorizontal: 12, paddingBottom: 8 },
   gridCell:      { flex: 1, alignItems: 'center', paddingVertical: 8 },
   gridCellSelected: { backgroundColor: 'rgba(125,105,171,0.12)', borderRadius: 16 },
-  pickerFooter:  { paddingHorizontal: 16, paddingTop: 16 },
 });
