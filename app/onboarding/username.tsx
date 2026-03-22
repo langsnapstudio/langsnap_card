@@ -32,23 +32,41 @@ const USERNAME_REGEX = /^[a-zA-Z0-9]+$/;
 const TOTAL_STEPS    = 3;
 
 // ── Avatars ────────────────────────────────────────────────────────────────────
-type AvatarItem = { id: string; emoji?: string; image?: any; bg: string };
+type AvatarItem = { id: string; bg: string };
+
+const AVATAR_IMAGES: Record<string, any> = {
+  dog:        require('@/assets/images/illustration-dog.png'),
+  pineapple:  require('@/assets/images/illustration-pineapple.png'),
+  bubble_tea: require('@/assets/images/illustration-bubble-tea.png'),
+  // Add more as you drop image files into assets/images/:
+  // fox:        require('@/assets/images/illustration-fox.png'),
+  // panda:      require('@/assets/images/illustration-panda.png'),
+  // elephant:   require('@/assets/images/illustration-elephant.png'),
+  // rabbit:     require('@/assets/images/illustration-rabbit.png'),
+  // strawberry: require('@/assets/images/illustration-strawberry.png'),
+  // blueberry:  require('@/assets/images/illustration-blueberry.png'),
+  // corn:       require('@/assets/images/illustration-corn.png'),
+  // burger:     require('@/assets/images/illustration-burger.png'),
+  // sushi:      require('@/assets/images/illustration-sushi.png'),
+  // pizza:      require('@/assets/images/illustration-pizza.png'),
+  // flower:     require('@/assets/images/illustration-flower.png'),
+};
 
 const AVATARS: AvatarItem[] = [
-  { id: 'dog',        image: require('@/assets/images/illustration-dog.png'),        bg: '#F5C842' },
-  { id: 'fox',        emoji: '🦊', bg: '#F5A342' },
-  { id: 'panda',      emoji: '🐼', bg: '#555555' },
-  { id: 'elephant',   emoji: '🐘', bg: '#B0CCDF' },
-  { id: 'rabbit',     emoji: '🐰', bg: '#E8E8E4' },
-  { id: 'strawberry', emoji: '🍓', bg: '#F5C8C8' },
-  { id: 'blueberry',  emoji: '🫐', bg: '#9BB5E8' },
-  { id: 'pineapple',  image: require('@/assets/images/illustration-pineapple.png'),  bg: '#4CAF50' },
-  { id: 'corn',       emoji: '🌽', bg: '#2E9E7A' },
-  { id: 'burger',     emoji: '🍔', bg: '#E53935' },
-  { id: 'sushi',      emoji: '🍱', bg: '#424242' },
-  { id: 'pizza',      emoji: '🍕', bg: '#26C6DA' },
-  { id: 'bubble_tea', image: require('@/assets/images/illustration-bubble-tea.png'), bg: '#8D6E63' },
-  { id: 'flower',     emoji: '🌸', bg: '#F48FB1' },
+  { id: 'dog',        bg: '#F5C842' },
+  { id: 'fox',        bg: '#F5A342' },
+  { id: 'panda',      bg: '#555555' },
+  { id: 'elephant',   bg: '#B0CCDF' },
+  { id: 'rabbit',     bg: '#E8E8E4' },
+  { id: 'strawberry', bg: '#F5C8C8' },
+  { id: 'blueberry',  bg: '#9BB5E8' },
+  { id: 'pineapple',  bg: '#4CAF50' },
+  { id: 'corn',       bg: '#2E9E7A' },
+  { id: 'burger',     bg: '#E53935' },
+  { id: 'sushi',      bg: '#424242' },
+  { id: 'pizza',      bg: '#26C6DA' },
+  { id: 'bubble_tea', bg: '#8D6E63' },
+  { id: 'flower',     bg: '#F48FB1' },
 ];
 
 // ── Progress bar ───────────────────────────────────────────────────────────────
@@ -70,12 +88,20 @@ function ProgressBar({ total, step }: { total: number; step: number }) {
 
 // ── Avatar circle ──────────────────────────────────────────────────────────────
 function AvatarCircle({ avatar, size = 120 }: { avatar: AvatarItem; size?: number }) {
+  const image = AVATAR_IMAGES[avatar.id];
   return (
     <View style={[styles.avatarCircle, { width: size, height: size, borderRadius: size / 2, backgroundColor: avatar.bg }]}>
-      {avatar.image ? (
-        <Image source={avatar.image} style={{ width: size * 0.78, height: size * 0.78 }} resizeMode="contain" />
+      {image ? (
+        // Fill the full circle, let overflow:hidden clip it into the circle shape
+        <Image
+          source={image}
+          style={{ width: size, height: size }}
+          resizeMode="contain"
+        />
       ) : (
-        <Text style={{ fontSize: size * 0.46 }}>{avatar.emoji}</Text>
+        // Placeholder while image file isn't added yet
+        <View style={{ width: size * 0.5, height: size * 0.5, opacity: 0.3,
+          borderRadius: 4, backgroundColor: '#fff' }} />
       )}
     </View>
   );
