@@ -21,8 +21,10 @@ const AVATAR_IMAGES: Record<string, any> = {
   hamburger:   require('@/assets/images/avatar-hamburger.png'),
   sushi:       require('@/assets/images/avatar-sushi.png'),
   pizza:       require('@/assets/images/avatar-pizza.png'),
-  bubbletea:   require('@/assets/images/avatar-bubbletea.png'),
-  hotcocoa:    require('@/assets/images/avatar-hotcocoa.png'),
+  streamedbun:  require('@/assets/images/avatar-streamedbun.png'),
+  bubbletea:    require('@/assets/images/avatar-bubbletea.png'),
+  hotcocoa:     require('@/assets/images/avatar-hotcocoa.png'),
+  beer:         require('@/assets/images/avatar-beer.png'),
 };
 
 export default function ProfileScreen() {

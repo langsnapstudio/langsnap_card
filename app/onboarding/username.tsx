@@ -38,24 +38,24 @@ const TOTAL_STEPS    = 3;
 type AvatarItem = { id: string; fallbackBg: string };
 
 const AVATAR_IMAGES: Record<string, any> = {
-  dog:         require('@/assets/images/avatar-dog.png'),
-  cat:         require('@/assets/images/avatar-cat.png'),
-  sheep:       require('@/assets/images/avatar-sheep.png'),
-  elephant:    require('@/assets/images/avatar-elephant.png'),
-  rabbit:      require('@/assets/images/avatar-rabbit.png'),
-  watermelon:  require('@/assets/images/avatar-watermelon.png'),
-  dragonfruit: require('@/assets/images/avatar-dragonfruit.png'),
-  pineapple:   require('@/assets/images/avatar-pineapple.png'),
-  corn:        require('@/assets/images/avatar-corn.png'),
-  hamburger:   require('@/assets/images/avatar-hamburger.png'),
-  sushi:       require('@/assets/images/avatar-sushi.png'),
-  pizza:       require('@/assets/images/avatar-pizza.png'),
-  bubbletea:   require('@/assets/images/avatar-bubbletea.png'),
-  hotcocoa:    require('@/assets/images/avatar-hotcocoa.png'),
+  dog:          require('@/assets/images/avatar-dog.png'),
+  cat:          require('@/assets/images/avatar-cat.png'),
+  sheep:        require('@/assets/images/avatar-sheep.png'),
+  elephant:     require('@/assets/images/avatar-elephant.png'),
+  rabbit:       require('@/assets/images/avatar-rabbit.png'),
+  watermelon:   require('@/assets/images/avatar-watermelon.png'),
+  dragonfruit:  require('@/assets/images/avatar-dragonfruit.png'),
+  pineapple:    require('@/assets/images/avatar-pineapple.png'),
+  corn:         require('@/assets/images/avatar-corn.png'),
+  hamburger:    require('@/assets/images/avatar-hamburger.png'),
+  sushi:        require('@/assets/images/avatar-sushi.png'),
+  pizza:        require('@/assets/images/avatar-pizza.png'),
+  streamedbun:  require('@/assets/images/avatar-streamedbun.png'),
+  bubbletea:    require('@/assets/images/avatar-bubbletea.png'),
+  hotcocoa:     require('@/assets/images/avatar-hotcocoa.png'),
+  beer:         require('@/assets/images/avatar-beer.png'),
 };
 
-// id must match the key in AVATAR_IMAGES above
-// fallbackBg only shows while an image is missing (shouldn't happen now)
 const AVATARS: AvatarItem[] = [
   { id: 'dog',         fallbackBg: '#F5C842' },
   { id: 'cat',         fallbackBg: '#E07A45' },
@@ -69,8 +69,10 @@ const AVATARS: AvatarItem[] = [
   { id: 'hamburger',   fallbackBg: '#E53935' },
   { id: 'sushi',       fallbackBg: '#424242' },
   { id: 'pizza',       fallbackBg: '#26C6DA' },
+  { id: 'streamedbun', fallbackBg: '#D4A574' },
   { id: 'bubbletea',   fallbackBg: '#8D6E63' },
   { id: 'hotcocoa',    fallbackBg: '#6D4C41' },
+  { id: 'beer',        fallbackBg: '#F5A623' },
 ];
 
 // ── Progress bar ───────────────────────────────────────────────────────────────
