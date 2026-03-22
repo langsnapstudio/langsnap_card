@@ -38,42 +38,39 @@ const TOTAL_STEPS    = 3;
 type AvatarItem = { id: string; fallbackBg: string };
 
 const AVATAR_IMAGES: Record<string, any> = {
-  dog:        require('@/assets/images/avatar-dog.png'),
-  cat:        require('@/assets/images/avatar-cat.png'),
-  sheep:      require('@/assets/images/avatar-sheep.png'),
-  // Uncomment each line after dropping the file into assets/images/:
-  // panda:      require('@/assets/images/avatar-panda.png'),
-  // elephant:   require('@/assets/images/avatar-elephant.png'),
-  // rabbit:     require('@/assets/images/avatar-rabbit.png'),
-  // strawberry: require('@/assets/images/avatar-strawberry.png'),
-  // blueberry:  require('@/assets/images/avatar-blueberry.png'),
-  // pineapple:  require('@/assets/images/avatar-pineapple.png'),
-  // corn:       require('@/assets/images/avatar-corn.png'),
-  // burger:     require('@/assets/images/avatar-burger.png'),
-  // sushi:      require('@/assets/images/avatar-sushi.png'),
-  // pizza:      require('@/assets/images/avatar-pizza.png'),
-  // bubble_tea: require('@/assets/images/avatar-bubble_tea.png'),
-  // flower:     require('@/assets/images/avatar-flower.png'),
+  dog:         require('@/assets/images/avatar-dog.png'),
+  cat:         require('@/assets/images/avatar-cat.png'),
+  sheep:       require('@/assets/images/avatar-sheep.png'),
+  elephant:    require('@/assets/images/avatar-elephant.png'),
+  rabbit:      require('@/assets/images/avatar-rabbit.png'),
+  watermelon:  require('@/assets/images/avatar-watermelon.png'),
+  dragonfruit: require('@/assets/images/avatar-dragonfruit.png'),
+  pineapple:   require('@/assets/images/avatar-pineapple.png'),
+  corn:        require('@/assets/images/avatar-corn.png'),
+  hamburger:   require('@/assets/images/avatar-hamburger.png'),
+  sushi:       require('@/assets/images/avatar-sushi.png'),
+  pizza:       require('@/assets/images/avatar-pizza.png'),
+  bubbletea:   require('@/assets/images/avatar-bubbletea.png'),
+  hotcocoa:    require('@/assets/images/avatar-hotcocoa.png'),
 };
 
-// id must match the key in AVATAR_IMAGES
-// fallbackBg is only shown as placeholder while the image file hasn't been added yet
+// id must match the key in AVATAR_IMAGES above
+// fallbackBg only shows while an image is missing (shouldn't happen now)
 const AVATARS: AvatarItem[] = [
-  { id: 'dog',        fallbackBg: '#F5C842' },
-  { id: 'cat',        fallbackBg: '#E07A45' },
-  { id: 'sheep',      fallbackBg: '#555555' },
-  { id: 'panda',      fallbackBg: '#555555' },
-  { id: 'elephant',   fallbackBg: '#B0CCDF' },
-  { id: 'rabbit',     fallbackBg: '#E8E8E4' },
-  { id: 'strawberry', fallbackBg: '#F5C8C8' },
-  { id: 'blueberry',  fallbackBg: '#9BB5E8' },
-  { id: 'pineapple',  fallbackBg: '#4CAF50' },
-  { id: 'corn',       fallbackBg: '#2E9E7A' },
-  { id: 'burger',     fallbackBg: '#E53935' },
-  { id: 'sushi',      fallbackBg: '#424242' },
-  { id: 'pizza',      fallbackBg: '#26C6DA' },
-  { id: 'bubble_tea', fallbackBg: '#8D6E63' },
-  { id: 'flower',     fallbackBg: '#F48FB1' },
+  { id: 'dog',         fallbackBg: '#F5C842' },
+  { id: 'cat',         fallbackBg: '#E07A45' },
+  { id: 'sheep',       fallbackBg: '#606060' },
+  { id: 'elephant',    fallbackBg: '#B0CCDF' },
+  { id: 'rabbit',      fallbackBg: '#E8E8E4' },
+  { id: 'watermelon',  fallbackBg: '#E05C5C' },
+  { id: 'dragonfruit', fallbackBg: '#9BB5E8' },
+  { id: 'pineapple',   fallbackBg: '#4CAF50' },
+  { id: 'corn',        fallbackBg: '#2E9E7A' },
+  { id: 'hamburger',   fallbackBg: '#E53935' },
+  { id: 'sushi',       fallbackBg: '#424242' },
+  { id: 'pizza',       fallbackBg: '#26C6DA' },
+  { id: 'bubbletea',   fallbackBg: '#8D6E63' },
+  { id: 'hotcocoa',    fallbackBg: '#6D4C41' },
 ];
 
 // ── Progress bar ───────────────────────────────────────────────────────────────

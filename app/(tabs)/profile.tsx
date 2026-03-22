@@ -9,13 +9,20 @@ const TEXT_DARK    = '#262626';
 const TEXT_MUTED   = '#9097A3';
 
 const AVATAR_IMAGES: Record<string, any> = {
-  dog:        require('@/assets/images/avatar-dog.png'),
-  cat:        require('@/assets/images/avatar-cat.png'),
-  sheep:      require('@/assets/images/avatar-sheep.png'),
-  // Add more as files are added:
-  // panda:      require('@/assets/images/avatar-panda.png'),
-  // pineapple:  require('@/assets/images/avatar-pineapple.png'),
-  // bubble_tea: require('@/assets/images/avatar-bubble_tea.png'),
+  dog:         require('@/assets/images/avatar-dog.png'),
+  cat:         require('@/assets/images/avatar-cat.png'),
+  sheep:       require('@/assets/images/avatar-sheep.png'),
+  elephant:    require('@/assets/images/avatar-elephant.png'),
+  rabbit:      require('@/assets/images/avatar-rabbit.png'),
+  watermelon:  require('@/assets/images/avatar-watermelon.png'),
+  dragonfruit: require('@/assets/images/avatar-dragonfruit.png'),
+  pineapple:   require('@/assets/images/avatar-pineapple.png'),
+  corn:        require('@/assets/images/avatar-corn.png'),
+  hamburger:   require('@/assets/images/avatar-hamburger.png'),
+  sushi:       require('@/assets/images/avatar-sushi.png'),
+  pizza:       require('@/assets/images/avatar-pizza.png'),
+  bubbletea:   require('@/assets/images/avatar-bubbletea.png'),
+  hotcocoa:    require('@/assets/images/avatar-hotcocoa.png'),
 };
 
 export default function ProfileScreen() {
