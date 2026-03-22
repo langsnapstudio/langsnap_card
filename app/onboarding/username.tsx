@@ -32,41 +32,48 @@ const USERNAME_REGEX = /^[a-zA-Z0-9]+$/;
 const TOTAL_STEPS    = 3;
 
 // ── Avatars ────────────────────────────────────────────────────────────────────
-type AvatarItem = { id: string; bg: string };
+// Images already include their background color (square, gets clipped to circle)
+// Naming: avatar-[animal/food].png in assets/images/
+// Fallback bg color shown as placeholder until image file is added
+type AvatarItem = { id: string; fallbackBg: string };
 
 const AVATAR_IMAGES: Record<string, any> = {
-  dog:        require('@/assets/images/illustration-dog.png'),
-  pineapple:  require('@/assets/images/illustration-pineapple.png'),
-  bubble_tea: require('@/assets/images/illustration-bubble-tea.png'),
-  // Add more as you drop image files into assets/images/:
-  // fox:        require('@/assets/images/illustration-fox.png'),
-  // panda:      require('@/assets/images/illustration-panda.png'),
-  // elephant:   require('@/assets/images/illustration-elephant.png'),
-  // rabbit:     require('@/assets/images/illustration-rabbit.png'),
-  // strawberry: require('@/assets/images/illustration-strawberry.png'),
-  // blueberry:  require('@/assets/images/illustration-blueberry.png'),
-  // corn:       require('@/assets/images/illustration-corn.png'),
-  // burger:     require('@/assets/images/illustration-burger.png'),
-  // sushi:      require('@/assets/images/illustration-sushi.png'),
-  // pizza:      require('@/assets/images/illustration-pizza.png'),
-  // flower:     require('@/assets/images/illustration-flower.png'),
+  dog:        require('@/assets/images/avatar-dog.png'),
+  cat:        require('@/assets/images/avatar-cat.png'),
+  sheep:      require('@/assets/images/avatar-sheep.png'),
+  // Uncomment each line after dropping the file into assets/images/:
+  // panda:      require('@/assets/images/avatar-panda.png'),
+  // elephant:   require('@/assets/images/avatar-elephant.png'),
+  // rabbit:     require('@/assets/images/avatar-rabbit.png'),
+  // strawberry: require('@/assets/images/avatar-strawberry.png'),
+  // blueberry:  require('@/assets/images/avatar-blueberry.png'),
+  // pineapple:  require('@/assets/images/avatar-pineapple.png'),
+  // corn:       require('@/assets/images/avatar-corn.png'),
+  // burger:     require('@/assets/images/avatar-burger.png'),
+  // sushi:      require('@/assets/images/avatar-sushi.png'),
+  // pizza:      require('@/assets/images/avatar-pizza.png'),
+  // bubble_tea: require('@/assets/images/avatar-bubble_tea.png'),
+  // flower:     require('@/assets/images/avatar-flower.png'),
 };
 
+// id must match the key in AVATAR_IMAGES
+// fallbackBg is only shown as placeholder while the image file hasn't been added yet
 const AVATARS: AvatarItem[] = [
-  { id: 'dog',        bg: '#F5C842' },
-  { id: 'fox',        bg: '#F5A342' },
-  { id: 'panda',      bg: '#555555' },
-  { id: 'elephant',   bg: '#B0CCDF' },
-  { id: 'rabbit',     bg: '#E8E8E4' },
-  { id: 'strawberry', bg: '#F5C8C8' },
-  { id: 'blueberry',  bg: '#9BB5E8' },
-  { id: 'pineapple',  bg: '#4CAF50' },
-  { id: 'corn',       bg: '#2E9E7A' },
-  { id: 'burger',     bg: '#E53935' },
-  { id: 'sushi',      bg: '#424242' },
-  { id: 'pizza',      bg: '#26C6DA' },
-  { id: 'bubble_tea', bg: '#8D6E63' },
-  { id: 'flower',     bg: '#F48FB1' },
+  { id: 'dog',        fallbackBg: '#F5C842' },
+  { id: 'cat',        fallbackBg: '#E07A45' },
+  { id: 'sheep',      fallbackBg: '#555555' },
+  { id: 'panda',      fallbackBg: '#555555' },
+  { id: 'elephant',   fallbackBg: '#B0CCDF' },
+  { id: 'rabbit',     fallbackBg: '#E8E8E4' },
+  { id: 'strawberry', fallbackBg: '#F5C8C8' },
+  { id: 'blueberry',  fallbackBg: '#9BB5E8' },
+  { id: 'pineapple',  fallbackBg: '#4CAF50' },
+  { id: 'corn',       fallbackBg: '#2E9E7A' },
+  { id: 'burger',     fallbackBg: '#E53935' },
+  { id: 'sushi',      fallbackBg: '#424242' },
+  { id: 'pizza',      fallbackBg: '#26C6DA' },
+  { id: 'bubble_tea', fallbackBg: '#8D6E63' },
+  { id: 'flower',     fallbackBg: '#F48FB1' },
 ];
 
 // ── Progress bar ───────────────────────────────────────────────────────────────
@@ -87,21 +94,25 @@ function ProgressBar({ total, step }: { total: number; step: number }) {
 }
 
 // ── Avatar circle ──────────────────────────────────────────────────────────────
+// Images are square with baked-in background — clip to circle via overflow:hidden
 function AvatarCircle({ avatar, size = 120 }: { avatar: AvatarItem; size?: number }) {
   const image = AVATAR_IMAGES[avatar.id];
   return (
-    <View style={[styles.avatarCircle, { width: size, height: size, borderRadius: size / 2, backgroundColor: avatar.bg }]}>
+    <View style={[
+      styles.avatarCircle,
+      { width: size, height: size, borderRadius: size / 2,
+        backgroundColor: image ? 'transparent' : avatar.fallbackBg },
+    ]}>
       {image ? (
-        // Fill the full circle, let overflow:hidden clip it into the circle shape
         <Image
           source={image}
           style={{ width: size, height: size }}
-          resizeMode="contain"
+          resizeMode="cover"
         />
       ) : (
-        // Placeholder while image file isn't added yet
-        <View style={{ width: size * 0.5, height: size * 0.5, opacity: 0.3,
-          borderRadius: 4, backgroundColor: '#fff' }} />
+        // Dim placeholder until image file is added
+        <View style={{ width: size * 0.4, height: size * 0.4,
+          borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.35)' }} />
       )}
     </View>
   );

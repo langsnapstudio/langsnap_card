@@ -9,40 +9,31 @@ const TEXT_DARK    = '#262626';
 const TEXT_MUTED   = '#9097A3';
 
 const AVATAR_IMAGES: Record<string, any> = {
-  dog:        require('@/assets/images/illustration-dog.png'),
-  pineapple:  require('@/assets/images/illustration-pineapple.png'),
-  bubble_tea: require('@/assets/images/illustration-bubble-tea.png'),
-};
-const AVATAR_COLORS: Record<string, string> = {
-  dog: '#F5C842', fox: '#F5A342', panda: '#555555', elephant: '#B0CCDF',
-  rabbit: '#E8E8E4', strawberry: '#F5C8C8', blueberry: '#9BB5E8',
-  pineapple: '#4CAF50', corn: '#2E9E7A', burger: '#E53935',
-  sushi: '#424242', pizza: '#26C6DA', bubble_tea: '#8D6E63', flower: '#F48FB1',
-};
-const AVATAR_EMOJI: Record<string, string> = {
-  fox: '🦊', panda: '🐼', elephant: '🐘', rabbit: '🐰',
-  strawberry: '🍓', blueberry: '🫐', corn: '🌽', burger: '🍔',
-  sushi: '🍱', pizza: '🍕', flower: '🌸',
+  dog:        require('@/assets/images/avatar-dog.png'),
+  cat:        require('@/assets/images/avatar-cat.png'),
+  sheep:      require('@/assets/images/avatar-sheep.png'),
+  // Add more as files are added:
+  // panda:      require('@/assets/images/avatar-panda.png'),
+  // pineapple:  require('@/assets/images/avatar-pineapple.png'),
+  // bubble_tea: require('@/assets/images/avatar-bubble_tea.png'),
 };
 
 export default function ProfileScreen() {
   const { profile, signOut } = useAuth();
 
   const avatarId    = profile?.avatar_id ?? 'dog';
-  const avatarColor = AVATAR_COLORS[avatarId] ?? '#F5C842';
   const avatarImage = AVATAR_IMAGES[avatarId];
-  const avatarEmoji = AVATAR_EMOJI[avatarId];
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
 
         {/* Avatar */}
-        <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
+        <View style={[styles.avatar, { backgroundColor: avatarImage ? 'transparent' : '#F5C842' }]}>
           {avatarImage ? (
-            <Image source={avatarImage} style={styles.avatarImg} resizeMode="contain" />
+            <Image source={avatarImage} style={styles.avatarImg} resizeMode="cover" />
           ) : (
-            <Text style={styles.avatarEmoji}>{avatarEmoji ?? '🐶'}</Text>
+            <View style={{ width: 48, height: 48, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.35)' }} />
           )}
         </View>
 
@@ -88,8 +79,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 16, overflow: 'hidden',
   },
-  avatarImg:   { width: 74, height: 74 },
-  avatarEmoji: { fontSize: 42 },
+  avatarImg: { width: 96, height: 96 },
 
   name:     { fontSize: 22, color: TEXT_DARK, fontFamily: 'Volte-Bold', marginBottom: 4 },
   username: { fontSize: 15, color: TEXT_MUTED, fontFamily: 'Volte-Medium', marginBottom: 32 },
