@@ -39,10 +39,10 @@ const FLASHCARDS = [
 const EASE = Easing.inOut(Easing.ease);
 
 // Stack slot positions — all cards share top:0, transforms handle visual placement
-// ty is derived so each card's visual top edge matches: front=32, middle=16, back=0
+// ty is derived so each card's visual top edge matches: front=24, middle=12, back=0
 const DEPTH_POS = [
-  { ty: 32,  scl: 1.000, opa: 1.0 }, // 0: front
-  { ty: 11,  scl: 0.933, opa: 0.6 }, // 1: middle  (visual top ≈ 16)
+  { ty: 24,  scl: 1.000, opa: 1.0 }, // 0: front
+  { ty: 7,   scl: 0.933, opa: 0.6 }, // 1: middle  (visual top ≈ 12)
   { ty: -13, scl: 0.817, opa: 0.2 }, // 2: back    (visual top ≈ 0)
   { ty: -13, scl: 0.817, opa: 0.0 }, // 3: hidden  (same position, invisible)
 ] as const;
