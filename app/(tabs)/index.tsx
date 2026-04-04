@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAuth } from '@/lib/auth';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const BRAND_PURPLE = '#7D69AB';
@@ -23,12 +24,86 @@ const WHITE        = '#FFFFFF';
 
 const WELCOME_SHOWN_KEY = 'langsnap:welcome_shown';
 
-// ── Deck data (placeholder) ────────────────────────────────────────────────────
-const DECKS = [
-  { id: '1', title: 'Animals', subtitle: '動物', color: '#F5C842', image: require('@/assets/images/illustration-dog.png') },
-  { id: '2', title: 'Fruits & Vegetables', subtitle: '水果蔬菜', color: '#4CAF50', image: require('@/assets/images/illustration-pineapple.png') },
-  { id: '3', title: 'Food & Drinks', subtitle: '食物飲料', color: '#E53935', image: require('@/assets/images/illustration-bubble-tea.png') },
+// ── Mock data ──────────────────────────────────────────────────────────────────
+const ENERGY_COUNT = 1;
+
+const HSK_DECKS = [
+  { id: 'hsk1', title: 'HSK 3.0 Lv. 1', subtitle: '華語水平 3.0（一級）', image: require('@/assets/images/deck_cover_hsk1.png') },
+  { id: 'hsk2', title: 'HSK 3.0 Lv. 2', subtitle: '華語水平 3.0（二級）', image: require('@/assets/images/deck_cover_hsk2.png') },
+  { id: 'hsk3', title: 'HSK 3.0 Lv. 3', subtitle: '華語水平 3.0（三級）', image: require('@/assets/images/deck_cover_hsk3.png') },
+  { id: 'hsk4', title: 'HSK 3.0 Lv. 4', subtitle: '華語水平 3.0（四級）', image: require('@/assets/images/deck_cover_hsk4.png') },
 ];
+
+const THEME_DECKS = [
+  { id: 't1', title: 'Animals',             subtitle: '動物',   image: require('@/assets/images/deck_cover_animals.png') },
+  { id: 't2', title: 'Fruits & Vegetables', subtitle: '水果蔬菜', image: require('@/assets/images/deck_cover_fruits_vegetables.png') },
+  { id: 't3', title: 'Food & Drinks',       subtitle: '食物飲料', image: require('@/assets/images/deck_cover_food_drinks.png') },
+  { id: 't4', title: 'Clothe & Accessories',subtitle: '衣服配飾', image: require('@/assets/images/deck_cover_clothe_accessories.png') },
+  { id: 't5', title: 'Body Parts',          subtitle: '身體部位', image: require('@/assets/images/deck_cover_body_parts.png') },
+  { id: 't6', title: 'Furniture & Appliances', subtitle: '家具家電', image: require('@/assets/images/deck_cover_furniture_appliances.png') },
+  { id: 't7', title: 'Sports',              subtitle: '運動',   image: require('@/assets/images/deck_cover_animals.png') },
+];
+
+// ── HSK Deck Card ──────────────────────────────────────────────────────────────
+function HskCard({ deck, onPress }: { deck: typeof HSK_DECKS[0]; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={styles.deckCard} activeOpacity={0.85} onPress={onPress}>
+      <View style={styles.hskImageBox}>
+        <Image source={deck.image} style={styles.coverImage} resizeMode="cover" />
+      </View>
+      <Text style={styles.deckTitle}>{deck.title}</Text>
+      <Text style={styles.deckSubtitle}>{deck.subtitle}</Text>
+    </TouchableOpacity>
+  );
+}
+
+// ── Theme Deck Card ────────────────────────────────────────────────────────────
+function ThemeCard({ deck, onPress }: { deck: typeof THEME_DECKS[0]; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={styles.deckCard} activeOpacity={0.85} onPress={onPress}>
+      <View style={styles.themeImageBox}>
+        <Image source={deck.image} style={styles.coverImage} resizeMode="cover" />
+      </View>
+      <Text style={styles.deckTitle}>{deck.title}</Text>
+      <Text style={styles.deckSubtitle}>{deck.subtitle}</Text>
+    </TouchableOpacity>
+  );
+}
+
+// ── Deck Section ──────────────────────────────────────────────────────────────
+const MAX_CAROUSEL = 6;
+
+function DeckSection<T extends { id: string }>({
+  title, decks, onShowAll, renderItem,
+}: {
+  title: string;
+  decks: T[];
+  onShowAll: () => void;
+  renderItem: (deck: T) => React.ReactNode;
+}) {
+  const visible = decks.slice(0, MAX_CAROUSEL);
+  const hasMore  = decks.length > MAX_CAROUSEL;
+
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>{title}</Text>
+        {hasMore && (
+          <TouchableOpacity activeOpacity={0.7} onPress={onShowAll}>
+            <Text style={styles.showAll}>show all</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.deckRow}
+      >
+        {visible.map(deck => renderItem(deck))}
+      </ScrollView>
+    </View>
+  );
+}
 
 // ── Welcome Bottom Sheet ───────────────────────────────────────────────────────
 function WelcomeSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -60,7 +135,6 @@ function WelcomeSheet({ visible, onClose }: { visible: boolean; onClose: () => v
       <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
         <View style={styles.sheetHandle} />
 
-        {/* Creator avatar */}
         <View style={styles.creatorAvatar}>
           <Image
             source={require('@/assets/images/illustration-dog.png')}
@@ -75,15 +149,12 @@ function WelcomeSheet({ visible, onClose }: { visible: boolean; onClose: () => v
           <Text style={styles.welcomeBody}>
             {"Hey, I'm Septymo\nDesigner. Language learner. Solo creator of this app."}
           </Text>
-
           <Text style={[styles.welcomeBody, styles.bodyPara]}>
             {'I built this app because I wanted a more enjoyable and memorable way to learn vocabulary. With 500+ hand-drawn illustrated flashcards, I believe it can help you learn more effectively — and have more fun doing it, just like it did for me.'}
           </Text>
-
           <Text style={[styles.welcomeBody, styles.bodyPara]}>
             {"By being here, you're supporting not just a language app, but every crafted illustration I poured into it. Thank you — it means everything."}
           </Text>
-
           <Text style={[styles.welcomeBody, styles.bodyPara]}>
             {'Now — pick a deck that catches your eye and dive in. Enjoy the journey!'}
           </Text>
@@ -99,103 +170,137 @@ function WelcomeSheet({ visible, onClose }: { visible: boolean; onClose: () => v
 
 // ── Learn Tab ─────────────────────────────────────────────────────────────────
 export default function LearnScreen() {
-  const { profile } = useAuth();
+  const router = useRouter();
   const [showWelcome, setShowWelcome] = useState(false);
 
-  // Show welcome sheet only on first visit
   useEffect(() => {
     AsyncStorage.getItem(WELCOME_SHOWN_KEY).then(val => {
       if (!val) {
-        // Small delay so the tab transition finishes first
         setTimeout(() => setShowWelcome(true), 500);
         AsyncStorage.setItem(WELCOME_SHOWN_KEY, 'true');
       }
     });
   }, []);
 
-  const handleWelcomeClose = () => {
-    setShowWelcome(false);
-  };
-
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scroll}>
 
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>
-              {'Hi, '}{profile?.display_name?.split(' ')[0] ?? 'there'}
-            </Text>
-            <Text style={styles.subGreeting}>What do you want to learn today?</Text>
-          </View>
-        </View>
+      {/* ── Energy badge ────────────────────────────────────────────────── */}
+      <View style={styles.topBar}>
+        <TouchableOpacity style={styles.energyBadge} activeOpacity={0.8}>
+          <Ionicons name="flash" size={14} color="#F5C842" />
+          <Text style={styles.energyCount}>{ENERGY_COUNT}</Text>
+        </TouchableOpacity>
+      </View>
 
-        {/* Themes section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Themes</Text>
-            <TouchableOpacity>
-              <Text style={styles.showAll}>show all</Text>
-            </TouchableOpacity>
-          </View>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.deckRow}>
-            {DECKS.map(deck => (
-              <TouchableOpacity key={deck.id} style={[styles.deckCard, { backgroundColor: deck.color }]} activeOpacity={0.85}>
-                <Image source={deck.image} style={styles.deckImage} resizeMode="contain" />
-                <Text style={styles.deckTitle}>{deck.title}</Text>
-                <Text style={styles.deckSubtitle}>{deck.subtitle}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+        {/* ── HSK section ───────────────────────────────────────────────── */}
+        <DeckSection
+          title="HSK"
+          onShowAll={() => {/* TODO: HSK list screen */}}
+          renderItem={(deck) => (
+            <HskCard
+              key={deck.id}
+              deck={deck}
+              onPress={() => router.push({ pathname: '/learn/deck-detail', params: { deckId: deck.id } })}
+            />
+          )}
+          decks={HSK_DECKS}
+        />
 
-        {/* More coming soon */}
-        <View style={styles.moreSection}>
-          <Text style={styles.moreText}>More decks coming soon ✨</Text>
-        </View>
+        {/* ── Theme section ─────────────────────────────────────────────── */}
+        <DeckSection
+          title="Theme"
+          onShowAll={() => router.push('/learn/theme-list')}
+          renderItem={(deck) => (
+            <ThemeCard
+              key={deck.id}
+              deck={deck}
+              onPress={() => router.push({ pathname: '/learn/deck-detail', params: { deckId: deck.id } })}
+            />
+          )}
+          decks={THEME_DECKS}
+        />
 
       </ScrollView>
 
-      <WelcomeSheet visible={showWelcome} onClose={handleWelcomeClose} />
+      <WelcomeSheet visible={showWelcome} onClose={() => setShowWelcome(false)} />
     </SafeAreaView>
   );
 }
 
 // ── Styles ─────────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: BG_CREAM },
-  scroll:   { paddingBottom: 40 },
+const CARD_WIDTH = 160;
+const CARD_HEIGHT = 160;
 
-  header: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 20,
+const styles = StyleSheet.create({
+  safeArea:      { flex: 1, backgroundColor: BG_CREAM },
+  scrollContent: { paddingBottom: 40 },
+
+  // Top bar with energy badge
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
+  energyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: WHITE,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  energyCount: { fontSize: 15, color: TEXT_DARK, fontFamily: 'Volte-Semibold' },
+
+  // Sections
+  section:       { marginBottom: 32 },
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    marginBottom: 16,
   },
-  greeting:    { fontSize: 22, color: TEXT_DARK, fontFamily: 'Volte-Bold' },
-  subGreeting: { fontSize: 14, color: TEXT_MUTED, fontFamily: 'Volte', marginTop: 4 },
+  sectionTitle: { fontSize: 22, color: TEXT_DARK, fontFamily: 'Volte-Bold' },
+  showAll:      { fontSize: 14, color: TEXT_MUTED, fontFamily: 'Volte-Medium' },
 
-  section:       { marginBottom: 32 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, marginBottom: 16 },
-  sectionTitle:  { fontSize: 20, color: TEXT_DARK, fontFamily: 'Volte-Bold' },
-  showAll:       { fontSize: 14, color: TEXT_MUTED, fontFamily: 'Volte-Medium' },
+  // Deck row
+  deckRow: { paddingLeft: 24, paddingRight: 12, gap: 14 },
+  deckCard: { width: CARD_WIDTH },
 
-  deckRow: { paddingLeft: 24, gap: 12, paddingRight: 24 },
-  deckCard: {
-    width: 160, borderRadius: 18,
-    padding: 12, paddingBottom: 16,
+  // Deck image boxes
+  hskImageBox: {
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT,
+    borderRadius: 18,
+    marginBottom: 10,
     overflow: 'hidden',
   },
-  deckImage:    { width: '100%', height: 120, marginBottom: 12 },
-  deckTitle:    { fontSize: 15, color: WHITE, fontFamily: 'Volte-Bold', marginBottom: 2 },
-  deckSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.8)', fontFamily: 'Volte' },
+  themeImageBox: {
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT,
+    borderRadius: 18,
+    marginBottom: 10,
+    overflow: 'hidden',
+  },
+  coverImage: { width: '100%', height: '100%' },
 
-  moreSection: { alignItems: 'center', paddingTop: 8 },
-  moreText:    { fontSize: 14, color: TEXT_MUTED, fontFamily: 'Volte' },
+  // Shared card text
+  deckTitle:    { fontSize: 15, color: TEXT_DARK,  fontFamily: 'Volte-Bold',   marginBottom: 2 },
+  deckSubtitle: { fontSize: 13, color: TEXT_MUTED, fontFamily: 'Volte' },
 
   // Welcome sheet
   overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)' },
@@ -217,12 +322,11 @@ const styles = StyleSheet.create({
     marginBottom: 20, overflow: 'hidden',
     alignSelf: 'center',
   },
-  creatorImage: { width: 70, height: 70 },
-
-  welcomeTitle: { fontSize: 22, color: TEXT_DARK, fontFamily: 'Volte-Bold', textAlign: 'center', marginBottom: 16 },
-  bodyBlock:    { marginBottom: 28 },
-  bodyPara:     { marginTop: 14 },
-  welcomeBody:  { fontSize: 15, lineHeight: 24, color: TEXT_MUTED, fontFamily: 'Volte', textAlign: 'center' },
+  creatorImage:   { width: 70, height: 70 },
+  welcomeTitle:   { fontSize: 22, color: TEXT_DARK, fontFamily: 'Volte-Bold', textAlign: 'center', marginBottom: 16 },
+  bodyBlock:      { marginBottom: 28 },
+  bodyPara:       { marginTop: 14 },
+  welcomeBody:    { fontSize: 15, lineHeight: 24, color: TEXT_MUTED, fontFamily: 'Volte', textAlign: 'center' },
   welcomeBtn: {
     width: '100%', height: 52, borderRadius: 14,
     backgroundColor: BRAND_PURPLE,

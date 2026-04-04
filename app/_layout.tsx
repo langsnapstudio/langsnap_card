@@ -45,6 +45,7 @@ function RootLayoutNav() {
       <Stack.Screen name="sign-in"    options={{ animation: 'fade' }} />
       <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
       <Stack.Screen name="(tabs)"     options={{ animation: 'fade' }} />
+      <Stack.Screen name="learn"      options={{ animation: 'slide_from_right' }} />
     </Stack>
   );
 }
