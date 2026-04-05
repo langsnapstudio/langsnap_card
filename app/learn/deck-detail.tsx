@@ -13,6 +13,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { DECK_DATA } from '@/constants/mock-packs';
+import type { PackMeta, DeckMeta } from '@/constants/mock-packs';
+import { setCurrentPack } from '@/constants/pack-store';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const BRAND_PURPLE = '#7D69AB';
@@ -21,65 +24,18 @@ const TEXT_DARK    = '#262626';
 const TEXT_MUTED   = '#9097A3';
 const WHITE        = '#FFFFFF';
 
-// ── Mock data ──────────────────────────────────────────────────────────────────
-type Pack = {
-  id: string;
-  level: number;
-  cardCount: number;
-  thumbnail: any;
-  energyCost: number;
-  isLocked: boolean;
-  isPremium: boolean;
-};
-
-type DeckData = {
-  title: string;
-  subtitle: string;
-  cover: any;
-  wordCount: number;
-  packs: Pack[];
-};
-
-const DECK_DATA: Record<string, DeckData> = {
-  t1: {
-    title: 'Animals', subtitle: '動物',
-    cover: require('@/assets/images/deck_cover_animals.png'),
-    wordCount: 50,
-    packs: [
-      { id: 'lv1', level: 1, cardCount: 10, thumbnail: require('@/assets/images/illustration-dog.png'),      energyCost: 0, isLocked: false, isPremium: false },
-      { id: 'lv2', level: 2, cardCount: 10, thumbnail: require('@/assets/images/illustration-dog.png'),      energyCost: 1, isLocked: false, isPremium: false },
-      { id: 'lv3', level: 3, cardCount: 10, thumbnail: require('@/assets/images/illustration-dog.png'),      energyCost: 1, isLocked: true,  isPremium: false },
-      { id: 'lv4', level: 4, cardCount: 10, thumbnail: require('@/assets/images/illustration-dog.png'),      energyCost: 1, isLocked: true,  isPremium: true  },
-    ],
-  },
-  t2: {
-    title: 'Fruits & Vegetables', subtitle: '水果蔬菜',
-    cover: require('@/assets/images/deck_cover_fruits_vegetables.png'),
-    wordCount: 40,
-    packs: [
-      { id: 'lv1', level: 1, cardCount: 10, thumbnail: require('@/assets/images/illustration-pineapple.png'), energyCost: 0, isLocked: false, isPremium: false },
-      { id: 'lv2', level: 2, cardCount: 10, thumbnail: require('@/assets/images/illustration-pineapple.png'), energyCost: 1, isLocked: false, isPremium: false },
-      { id: 'lv3', level: 3, cardCount: 10, thumbnail: require('@/assets/images/illustration-pineapple.png'), energyCost: 1, isLocked: true,  isPremium: false },
-      { id: 'lv4', level: 4, cardCount: 10, thumbnail: require('@/assets/images/illustration-pineapple.png'), energyCost: 1, isLocked: true,  isPremium: true  },
-    ],
-  },
-  t3: {
-    title: 'Food & Drinks', subtitle: '食物飲料',
-    cover: require('@/assets/images/deck_cover_food_drinks.png'),
-    wordCount: 45,
-    packs: [
-      { id: 'lv1', level: 1, cardCount: 10, thumbnail: require('@/assets/images/illustration-bubble-tea.png'), energyCost: 0, isLocked: false, isPremium: false },
-      { id: 'lv2', level: 2, cardCount: 10, thumbnail: require('@/assets/images/illustration-bubble-tea.png'), energyCost: 1, isLocked: false, isPremium: false },
-      { id: 'lv3', level: 3, cardCount: 10, thumbnail: require('@/assets/images/illustration-bubble-tea.png'), energyCost: 1, isLocked: true,  isPremium: false },
-    ],
-  },
-};
-
 // Fallback for decks not in the map
-const DEFAULT_DECK: DeckData = {
-  title: 'Deck', subtitle: '', cover: require('@/assets/images/deck_cover_animals.png'), wordCount: 0,
+const DEFAULT_DECK: DeckMeta = {
+  title: 'Deck', subtitle: '', wordCount: 0,
+  cover:        require('@/assets/images/deck_cover_animals.png'),
+  packBagImage: require('@/assets/images/pack_bag_animals.png'),
   packs: [
-    { id: 'lv1', level: 1, cardCount: 10, thumbnail: require('@/assets/images/illustration-dog.png'), energyCost: 0, isLocked: false, isPremium: false },
+    {
+      id: 'lv1', level: 1, cardCount: 0,
+      thumbnail: require('@/assets/images/illustration-dog.png'),
+      energyCost: 0, isLocked: false, isPremium: false,
+      cards: [],
+    },
   ],
 };
 
@@ -88,7 +44,7 @@ function RedemptionSheet({
   visible, pack, deckTitle, onCancel, onConfirm,
 }: {
   visible: boolean;
-  pack: Pack | null;
+  pack: PackMeta | null;
   deckTitle: string;
   onCancel: () => void;
   onConfirm: () => void;
@@ -161,26 +117,34 @@ export default function DeckDetailScreen() {
   const router = useRouter();
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
 
-  const deck = DECK_DATA[deckId ?? ''] ?? DEFAULT_DECK;
+  const deck: DeckMeta = DECK_DATA[deckId ?? ''] ?? DEFAULT_DECK;
 
-  const [selectedPack, setSelectedPack] = useState<Pack | null>(null);
+  const [selectedPack, setSelectedPack] = useState<PackMeta | null>(null);
 
-  const handlePackPress = (pack: Pack) => {
+  const handlePackPress = (pack: PackMeta) => {
     if (pack.isLocked) return;
     setSelectedPack(pack);
   };
 
   const handleConfirm = () => {
     if (!selectedPack) return;
+    // Store pack data before navigating so pack-opening can read it without
+    // serialising the full card array through navigation params.
+    setCurrentPack({
+      pack:         selectedPack,
+      packBagImage: deck.packBagImage,
+      deckTitle:    deck.title,
+      deckId:       deckId ?? '',
+    });
     setSelectedPack(null);
     router.push({
       pathname: '/learn/pack-opening',
       params: {
         deckId,
-        packId:     selectedPack.id,
-        packLevel:  String(selectedPack.level),
-        cardCount:  String(selectedPack.cardCount),
-        deckTitle:  deck.title,
+        packId:    selectedPack.id,
+        packLevel: String(selectedPack.level),
+        cardCount: String(selectedPack.cardCount),
+        deckTitle: deck.title,
       },
     });
   };
@@ -342,7 +306,7 @@ const styles = StyleSheet.create({
   },
   cancelBtnText:  { fontSize: 16, color: TEXT_DARK,  fontFamily: 'Volte-Semibold' },
   confirmBtn: {
-    flex: 2, height: 52, borderRadius: 14,
+    flex: 1, height: 52, borderRadius: 14,
     backgroundColor: BRAND_PURPLE,
     alignItems: 'center', justifyContent: 'center',
   },

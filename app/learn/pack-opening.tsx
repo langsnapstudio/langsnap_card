@@ -14,12 +14,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { getCurrentPack } from '@/constants/pack-store';
+import { cardTextColor } from '@/constants/mock-packs';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
 const BRAND_PURPLE = '#7D69AB';
-const CARD_COLOR   = '#6B5A9E';
 const BG_CREAM     = '#F4F0E8';
 
 const PKG_W            = Math.min(360, SCREEN_W - 40);
@@ -36,48 +37,33 @@ const CARD_LEFT      = (SCREEN_W - CARD_W) / 2;
 const CARD_TOP       = (SCREEN_H - CARD_H) / 2;
 const CARD_INITIAL_Y = PKG_TOP + CUT_Y + PKG_HALF_OFF - CARD_H / 2 - CARD_TOP;
 
-// 3 depth positions — indexed 0=front,1=mid,2=back
 const DEPTH = [
-  { scale: 0.93, dy:   0, opacity: 1.00 },
-  { scale: 0.90, dy: -12, opacity: 0.55 },
-  { scale: 0.87, dy: -24, opacity: 0.25 },
+  { scale: 0.93, dy:   0, opacity: 1.0 },
+  { scale: 0.90, dy: -12, opacity: 1.0 },
+  { scale: 0.87, dy: -24, opacity: 1.0 },
 ];
 
-// Front card dimensions (all 3 slots share this; scale handles depth)
 const FRONT_W    = CARD_W * DEPTH[0].scale;
 const FRONT_H    = CARD_H * DEPTH[0].scale;
 const FRONT_LEFT = CARD_LEFT + CARD_W * (1 - DEPTH[0].scale) / 2;
 
-// Relative scales (normalised to front = 1)
 const REL_MID  = DEPTH[1].scale / DEPTH[0].scale;
 const REL_BACK = DEPTH[2].scale / DEPTH[0].scale;
 
-// ── Cards ─────────────────────────────────────────────────────────────────────
-const CARDS = [
-  { id: '1',  word: '狗', pinyin: 'gǒu',   meaning: 'dog',    partOfSpeech: 'n.', illustration: require('@/assets/images/illustration-dog.png') },
-  { id: '2',  word: '猫', pinyin: 'māo',   meaning: 'cat',    partOfSpeech: 'n.', illustration: require('@/assets/images/illustration-dog.png') },
-  { id: '3',  word: '鸟', pinyin: 'niǎo',  meaning: 'bird',   partOfSpeech: 'n.', illustration: require('@/assets/images/illustration-dog.png') },
-  { id: '4',  word: '鱼', pinyin: 'yú',    meaning: 'fish',   partOfSpeech: 'n.', illustration: require('@/assets/images/illustration-dog.png') },
-  { id: '5',  word: '马', pinyin: 'mǎ',    meaning: 'horse',  partOfSpeech: 'n.', illustration: require('@/assets/images/illustration-dog.png') },
-  { id: '6',  word: '牛', pinyin: 'niú',   meaning: 'cow/ox', partOfSpeech: 'n.', illustration: require('@/assets/images/illustration-dog.png') },
-  { id: '7',  word: '猪', pinyin: 'zhū',   meaning: 'pig',    partOfSpeech: 'n.', illustration: require('@/assets/images/illustration-dog.png') },
-  { id: '8',  word: '羊', pinyin: 'yáng',  meaning: 'sheep',  partOfSpeech: 'n.', illustration: require('@/assets/images/illustration-dog.png') },
-  { id: '9',  word: '兔', pinyin: 'tù',    meaning: 'rabbit', partOfSpeech: 'n.', illustration: require('@/assets/images/illustration-dog.png') },
-  { id: '10', word: '熊', pinyin: 'xióng', meaning: 'bear',   partOfSpeech: 'n.', illustration: require('@/assets/images/illustration-dog.png') },
-];
+const FALLBACK_BAG = require('@/assets/images/pack_bag_animals.png');
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function PackOpeningScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
-  // ── 3-slot recycling ──────────────────────────────────────────────────────
-  // slotCards[slotIdx] = which CARDS index that slot currently holds
-  // frontSlot = which slot is currently in the front (interactive) position
+  const packData   = getCurrentPack();
+  const cards      = packData?.pack.cards ?? [];
+  const packBagImg = packData?.packBagImage ?? FALLBACK_BAG;
+
   const slotCardsRef = useRef([0, 1, 2]);
   const frontSlotRef = useRef(0);
 
-  // globalIndex drives the progress bar only
   const globalIndexRef = useRef(0);
   const [globalIndex, setGlobalIndex] = useState(0);
 
@@ -85,24 +71,37 @@ export default function PackOpeningScreen() {
   const isFlippedRef     = useRef(false);
   const isDraggingRef    = useRef(false);
 
-  // Per-slot animated values — slot i always keeps its own values
+  // ── Per-slot animated values — NEVER swapped between slots ───────────────
+  // Every slot keeps the same Animated.Value objects for its entire lifetime.
+  // This is the only reliable way to prevent the 1-frame native glitch on device:
+  // React Native's native renderer binds to node IDs — if the node ID for a
+  // transform or opacity prop changes between renders, it causes a visual flash.
+
   const slotOpacity = useRef(Array.from({ length: 3 }, () => new Animated.Value(0))).current;
   const slotScale   = useRef([1, REL_MID, REL_BACK].map(s => new Animated.Value(s))).current;
   const slotDy      = useRef(Array.from({ length: 3 }, () => new Animated.Value(CARD_INITIAL_Y))).current;
-
-  // Swipe x applies only to whichever slot is front
-  const swipeX = useRef(new Animated.Value(0)).current;
-  const swipeRotate = swipeX.interpolate({
+  const slotX       = useRef(Array.from({ length: 3 }, () => new Animated.Value(0))).current;
+  const slotRotate  = useRef(slotX.map(x => x.interpolate({
     inputRange: [-SCREEN_W, 0, SCREEN_W],
     outputRange: ['-20deg', '0deg', '20deg'],
-  });
+  }))).current;
 
-  // Flip applies only to front slot
-  const flipAnim         = useRef(new Animated.Value(0)).current;
-  const frontRotate      = flipAnim.interpolate({ inputRange: [0, 180], outputRange: ['0deg', '180deg'] });
-  const backRotate       = flipAnim.interpolate({ inputRange: [0, 180], outputRange: ['180deg', '360deg'] });
-  const frontFaceOpacity = flipAnim.interpolate({ inputRange: [0, 89, 90, 180], outputRange: [1, 1, 0, 0] });
-  const backFaceOpacity  = flipAnim.interpolate({ inputRange: [0, 89, 90, 180], outputRange: [0, 0, 1, 1] });
+  // Per-slot flip — each slot has its own flip value so the inner JSX
+  // structure is IDENTICAL for all slots (no conditional rendering based on
+  // isFront). Ghost slots stay at 0 so back face is always hidden.
+  const slotFlip = useRef(Array.from({ length: 3 }, () => new Animated.Value(0))).current;
+  const slotFrontRotY = useRef(slotFlip.map(f =>
+    f.interpolate({ inputRange: [0, 180], outputRange: ['0deg', '180deg'] })
+  )).current;
+  const slotBackRotY = useRef(slotFlip.map(f =>
+    f.interpolate({ inputRange: [0, 180], outputRange: ['180deg', '360deg'] })
+  )).current;
+  const slotFrontOpacity = useRef(slotFlip.map(f =>
+    f.interpolate({ inputRange: [0, 89, 90, 180], outputRange: [1, 1, 0, 0] })
+  )).current;
+  const slotBackOpacity = useRef(slotFlip.map(f =>
+    f.interpolate({ inputRange: [0, 89, 90, 180], outputRange: [0, 0, 1, 1] })
+  )).current;
 
   // ── Pack animation values ──────────────────────────────────────────────────
   const pkgSlide       = useRef(new Animated.Value(PKG_ENTER_OFFSET)).current;
@@ -113,8 +112,7 @@ export default function PackOpeningScreen() {
   const navOpacity     = useRef(new Animated.Value(0)).current;
   const bgAnim         = useRef(new Animated.Value(0)).current;
 
-  // ── Slot z-index helper — computed each render ────────────────────────────
-  // Must be called INSIDE render (after state updates) to be current
+  // ── Helpers ───────────────────────────────────────────────────────────────
   const getZIndex = (slotIdx: number) => {
     const front = frontSlotRef.current;
     const mid   = (front + 1) % 3;
@@ -123,74 +121,69 @@ export default function PackOpeningScreen() {
     return 20;
   };
 
+  const getSlotColor = (slotIdx: number): string => {
+    const card = cards[slotCardsRef.current[slotIdx]];
+    return card?.cardColor ?? '#6B5A9E';
+  };
+
   // ── Swipe exit ────────────────────────────────────────────────────────────
   const triggerExitRef = useRef<(flyDir: 1 | -1) => void>(() => {});
   triggerExitRef.current = (flyDir) => {
-    const front    = frontSlotRef.current;
-    const mid      = (front + 1) % 3;
-    const back     = (front + 2) % 3;
-    const nextGI   = globalIndexRef.current + 1;
+    const front  = frontSlotRef.current;
+    const mid    = (front + 1) % 3;
+    const back   = (front + 2) % 3;
+    const nextGI = globalIndexRef.current + 1;
 
-    // Which depth positions will be occupied after the transition?
-    const willHaveMid  = nextGI + 1 < CARDS.length;
-    const willHaveBack = nextGI + 2 < CARDS.length;
-
-    // Only animate visible slots
-    const hasMid  = globalIndexRef.current + 1 < CARDS.length;
-    const hasBack = globalIndexRef.current + 2 < CARDS.length;
+    const willHaveMid  = nextGI + 1 < cards.length;
+    const willHaveBack = nextGI + 2 < cards.length;
+    const hasMid       = globalIndexRef.current + 1 < cards.length;
+    const hasBack      = globalIndexRef.current + 2 < cards.length;
 
     const DUR  = 280;
     const ease = Easing.out(Easing.quad);
 
     Animated.parallel([
-      // Front flies off
-      Animated.timing(swipeX, { toValue: flyDir * SCREEN_W * 1.5, duration: DUR, easing: ease, useNativeDriver: true }),
-      // Mid → front (content already rendered — no re-render needed!)
+      Animated.timing(slotX[front],      { toValue: flyDir * SCREEN_W * 1.5, duration: DUR, easing: ease, useNativeDriver: true }),
+      Animated.timing(slotOpacity[front], { toValue: 0, duration: DUR * 0.6, easing: ease, useNativeDriver: true }),
       ...(hasMid ? [
         Animated.timing(slotScale[mid],   { toValue: 1,       duration: DUR, easing: ease, useNativeDriver: true }),
         Animated.timing(slotDy[mid],      { toValue: 0,        duration: DUR, easing: ease, useNativeDriver: true }),
         Animated.timing(slotOpacity[mid], { toValue: 1.0,      duration: DUR,               useNativeDriver: true }),
       ] : []),
-      // Back → mid
       ...(hasBack ? [
         Animated.timing(slotScale[back],   { toValue: REL_MID, duration: DUR, easing: ease, useNativeDriver: true }),
         Animated.timing(slotDy[back],      { toValue: -12,      duration: DUR, easing: ease, useNativeDriver: true }),
-        Animated.timing(slotOpacity[back], { toValue: 0.55,     duration: DUR,               useNativeDriver: true }),
+        Animated.timing(slotOpacity[back], { toValue: 1.0,      duration: DUR,               useNativeDriver: true }),
       ] : []),
     ]).start(() => {
-      // ── All setValue in one JS tick (same native frame) ─────────────────
-      swipeX.setValue(0);
-      flipAnim.setValue(0);
+      // Reset old front slot
+      slotX[front].setValue(0);
+      slotFlip[front].setValue(0);
       isFlippedRef.current = false;
 
-      // Advance front pointer
       frontSlotRef.current = mid;
 
-      // Recycle old front slot as the new back
       const newBackCardIdx = nextGI + 2;
-      slotCardsRef.current[front] = newBackCardIdx; // assign new content
-      slotOpacity[front].setValue(0);               // hide instantly (content change happens on next render)
+      slotCardsRef.current[front] = newBackCardIdx;
+      slotOpacity[front].setValue(0);
       slotScale[front].setValue(REL_BACK);
       slotDy[front].setValue(-24);
 
-      // Snap mid and back to their precise base positions
-      slotScale[mid].setValue(1);     slotDy[mid].setValue(0);   slotOpacity[mid].setValue(1.0);
-      slotScale[back].setValue(REL_MID); slotDy[back].setValue(-12); slotOpacity[back].setValue(willHaveMid ? 0.55 : 0);
+      slotScale[mid].setValue(1);        slotDy[mid].setValue(0);    slotOpacity[mid].setValue(1.0);
+      slotScale[back].setValue(REL_MID); slotDy[back].setValue(-12); slotOpacity[back].setValue(willHaveMid ? 1.0 : 0);
 
       globalIndexRef.current = nextGI;
 
-      if (nextGI >= CARDS.length) {
-        router.push({ pathname: '/learn/success', params: { ...params, cardCount: String(CARDS.length) } });
+      if (nextGI >= cards.length) {
+        router.push({ pathname: '/learn/success', params: { ...params, cardCount: String(cards.length) } });
         return;
       }
 
-      // Update progress bar (triggers re-render — content in recycled slot now correct)
       setGlobalIndex(nextGI);
 
-      // Fade recycled slot (new back) in after React re-renders its content
-      if (willHaveBack && newBackCardIdx < CARDS.length) {
+      if (willHaveBack && newBackCardIdx < cards.length) {
         requestAnimationFrame(() => {
-          Animated.timing(slotOpacity[front], { toValue: 0.25, duration: 200, useNativeDriver: true }).start();
+          Animated.timing(slotOpacity[front], { toValue: 1.0, duration: 200, useNativeDriver: true }).start();
         });
       }
     });
@@ -203,18 +196,18 @@ export default function PackOpeningScreen() {
       onMoveShouldSetPanResponder: (_, g) =>
         isInteractiveRef.current && Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy),
       onPanResponderGrant: () => { isDraggingRef.current = true; },
-      onPanResponderMove: (_, g) => { swipeX.setValue(g.dx); },
+      onPanResponderMove: (_, g) => { slotX[frontSlotRef.current].setValue(g.dx); },
       onPanResponderRelease: (_, g) => {
         isDraggingRef.current = false;
         if (Math.abs(g.dx) > 100 || Math.abs(g.vx) > 0.5) {
           triggerExitRef.current(g.dx > 0 ? 1 : -1);
         } else {
-          Animated.spring(swipeX, { toValue: 0, friction: 8, useNativeDriver: true }).start();
+          Animated.spring(slotX[frontSlotRef.current], { toValue: 0, friction: 8, useNativeDriver: true }).start();
         }
       },
       onPanResponderTerminate: () => {
         isDraggingRef.current = false;
-        Animated.spring(swipeX, { toValue: 0, friction: 8, useNativeDriver: true }).start();
+        Animated.spring(slotX[frontSlotRef.current], { toValue: 0, friction: 8, useNativeDriver: true }).start();
       },
     })
   ).current;
@@ -224,7 +217,9 @@ export default function PackOpeningScreen() {
     if (!isInteractiveRef.current || isDraggingRef.current) return;
     const toValue = isFlippedRef.current ? 0 : 180;
     isFlippedRef.current = !isFlippedRef.current;
-    Animated.spring(flipAnim, { toValue, friction: 8, tension: 40, useNativeDriver: true }).start();
+    Animated.spring(slotFlip[frontSlotRef.current], {
+      toValue, friction: 8, tension: 40, useNativeDriver: true,
+    }).start();
   };
 
   // ── Pack opening + card entrance ──────────────────────────────────────────
@@ -251,10 +246,9 @@ export default function PackOpeningScreen() {
       ]).start(() => {
         Animated.timing(bottomHalfY, { toValue: SCREEN_H, duration: 1000, useNativeDriver: true }).start();
 
-        // Spring all 3 slots to their entrance positions staggered
         [0, 1, 2].forEach((slotIdx, order) => {
-          const d = DEPTH[order]; // slot 0=front, 1=mid, 2=back at start
-          const cardExists = slotCardsRef.current[slotIdx] < CARDS.length;
+          const d = DEPTH[order];
+          const cardExists = slotCardsRef.current[slotIdx] < cards.length;
           setTimeout(() => {
             Animated.parallel([
               Animated.spring(slotDy[slotIdx], { toValue: d.dy, friction: 7, tension: 50, useNativeDriver: true }),
@@ -269,15 +263,13 @@ export default function PackOpeningScreen() {
       Animated.parallel([
         Animated.timing(bgAnim,     { toValue: 1, duration: 600, useNativeDriver: false }),
         Animated.timing(navOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-      ]).start(() => {
-        isInteractiveRef.current = true;
-      });
+      ]).start(() => { isInteractiveRef.current = true; });
     }, 5200);
 
     return () => [t1, t2, t3, t4].forEach(clearTimeout);
   }, []);
 
-  const progress = (globalIndex + 1) / CARDS.length;
+  const progress = cards.length > 0 ? (globalIndex + 1) / cards.length : 0;
 
   const bgColor = bgAnim.interpolate({
     inputRange: [0, 1], outputRange: [BG_CREAM, BRAND_PURPLE],
@@ -285,32 +277,25 @@ export default function PackOpeningScreen() {
 
   const ghostLayout = {
     position: 'absolute' as const,
-    left:        FRONT_LEFT,
-    top:         CARD_TOP,
-    width:       FRONT_W,
-    height:      FRONT_H,
+    left: FRONT_LEFT, top: CARD_TOP,
+    width: FRONT_W,   height: FRONT_H,
     borderRadius: 20,
-    backgroundColor: CARD_COLOR,
   };
 
   // ── Render each slot ──────────────────────────────────────────────────────
+  // IMPORTANT: The JSX structure inside every slot is IDENTICAL regardless of
+  // whether it's the front slot. Only prop VALUES differ (colors, zIndex).
+  // This prevents React from unmounting/remounting the subtree when a slot
+  // transitions from mid→front, which was the cause of the visual glitch.
   const renderSlot = (slotIdx: number) => {
-    const isFront  = slotIdx === frontSlotRef.current;
-    const cardIdx  = slotCardsRef.current[slotIdx];
-    const card     = CARDS[cardIdx];
-    const zIndex   = getZIndex(slotIdx);
-
+    const card    = cards[slotCardsRef.current[slotIdx]];
+    const zIndex  = getZIndex(slotIdx);
+    const bg      = getSlotColor(slotIdx);
     if (!card) return null;
 
-    const transforms: any[] = [
-      { translateY: slotDy[slotIdx] },
-    ];
-    if (isFront) {
-      transforms.push({ translateX: swipeX });
-      transforms.push({ rotate: swipeRotate });
-    } else {
-      transforms.push({ scale: slotScale[slotIdx] });
-    }
+    const txtColor = cardTextColor(bg);
+    const mutedTxt = txtColor === '#ffffff' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.35)';
+    const pillBg   = txtColor === '#ffffff' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)';
 
     return (
       <Animated.View
@@ -318,40 +303,64 @@ export default function PackOpeningScreen() {
         style={[ghostLayout, {
           zIndex,
           opacity: slotOpacity[slotIdx],
-          transform: transforms,
+          backgroundColor: bg,
+          transform: [
+            { translateY: slotDy[slotIdx] },
+            { translateX: slotX[slotIdx] },
+            { rotate:     slotRotate[slotIdx] },
+            { scale:      slotScale[slotIdx] },
+          ],
         }]}
-        {...(isFront ? panResponder.panHandlers : {})}
+        {...panResponder.panHandlers}
       >
-        {isFront ? (
-          // Front: full flip interaction
-          <Pressable style={StyleSheet.absoluteFill} onPress={handleFlip}>
-            <Animated.View style={[styles.abs, styles.face, {
-              opacity: frontFaceOpacity,
-              transform: [{ perspective: 1200 }, { rotateY: frontRotate }],
-            }]}>
-              <Image source={card.illustration} style={styles.illustration} resizeMode="contain" />
-              <Text style={styles.wordText}>{card.word}</Text>
-              <Text style={styles.tapHint}>Tap to reveal</Text>
-            </Animated.View>
-            <Animated.View style={[styles.abs, styles.face, {
-              opacity: backFaceOpacity,
-              transform: [{ perspective: 1200 }, { rotateY: backRotate }],
-            }]}>
-              <Text style={styles.pinyinText}>{card.pinyin}</Text>
-              <View style={styles.posPill}>
-                <Text style={styles.posText}>{card.partOfSpeech}</Text>
-              </View>
-              <Text style={styles.meaningText}>{card.meaning}</Text>
-              <Text style={styles.tapHint}>Tap to flip back</Text>
-            </Animated.View>
-          </Pressable>
-        ) : (
-          // Ghost: pre-render content so it's painted before it arrives at front
-          <View style={[styles.face, { opacity: 0.0 }]}>
-            <Image source={card.illustration} style={styles.illustration} resizeMode="contain" />
-            <Text style={styles.wordText}>{card.word}</Text>
-          </View>
-        )}
+        {/* Always spread panHandlers on every slot — removing the conditional
+            spread eliminates a prop-count change on re-render which caused a
+            1-frame flash on real device (New Architecture / Fabric). The pan
+            responder's own onMoveShouldSetPanResponder already gates on
+            isInteractiveRef + frontSlotRef so non-front slots ignore gestures. */}
+        <Pressable style={StyleSheet.absoluteFill} onPress={handleFlip}>
+          {/* Front face */}
+          <Animated.View style={[styles.abs, styles.face, {
+            backgroundColor: bg,
+            opacity: slotFrontOpacity[slotIdx],
+            transform: [{ perspective: 1200 }, { rotateY: slotFrontRotY[slotIdx] }],
+          }]}>
+            <Image source={card.illustrationUrl as any} style={styles.illustration} resizeMode="contain" />
+            <Text style={[styles.wordText, { color: txtColor }]}>{card.word}</Text>
+            <Text style={[styles.tapHint, { color: mutedTxt }]}>Tap to reveal</Text>
+            <TouchableOpacity style={styles.audioBtn} hitSlop={12} onPress={() => {}}>
+              <Ionicons name="volume-medium-outline" size={22} color={mutedTxt} />
+            </TouchableOpacity>
+          </Animated.View>
+          {/* Back face */}
+          <Animated.View style={[styles.abs, styles.face, {
+            backgroundColor: bg,
+            opacity: slotBackOpacity[slotIdx],
+            transform: [{ perspective: 1200 }, { rotateY: slotBackRotY[slotIdx] }],
+            alignItems: 'flex-start',
+            justifyContent: 'flex-start',
+            padding: 24,
+          }]}>
+            {/* Illustration — top right */}
+            <Image
+              source={card.illustrationUrl as any}
+              style={styles.backIllustration}
+              resizeMode="contain"
+            />
+            {/* Top-left: word, pinyin, POS */}
+            <Text style={[styles.backWord,   { color: txtColor }]}>{card.word}</Text>
+            <Text style={[styles.backPinyin, { color: mutedTxt }]}>{card.pinyin}</Text>
+            <View style={[styles.posPill, { backgroundColor: pillBg, marginTop: 8 }]}>
+              <Text style={[styles.posText, { color: mutedTxt }]}>{card.partOfSpeech}</Text>
+            </View>
+            {/* Bottom-left: meaning */}
+            <Text style={[styles.backMeaning, { color: txtColor }]}>{card.meaning}</Text>
+            <Text style={[styles.tapHint, { color: mutedTxt, alignSelf: 'center' }]}>Tap to flip back</Text>
+            <TouchableOpacity style={styles.audioBtn} hitSlop={12} onPress={() => {}}>
+              <Ionicons name="volume-medium-outline" size={22} color={mutedTxt} />
+            </TouchableOpacity>
+          </Animated.View>
+        </Pressable>
       </Animated.View>
     );
   };
@@ -360,30 +369,30 @@ export default function PackOpeningScreen() {
     <Animated.View style={[styles.root, { backgroundColor: bgColor }]}>
       <StatusBar barStyle="dark-content" />
 
-      {/* ── Bottom half ──────────────────────────────────────────────────── */}
+      {/* Bottom half */}
       <Animated.View style={[styles.abs, {
         left: PKG_LEFT, top: PKG_TOP + CUT_Y,
         width: PKG_W, height: PKG_H - CUT_Y,
         overflow: 'hidden', zIndex: 28,
         transform: [{ translateY: bottomHalfY }],
       }]}>
-        <Image source={require('@/assets/images/pack_bag_animals.png')}
+        <Image source={packBagImg as any}
           style={{ width: PKG_W, height: PKG_H, marginTop: -CUT_Y }} resizeMode="contain" />
       </Animated.View>
 
-      {/* ── Full pack ────────────────────────────────────────────────────── */}
+      {/* Full pack */}
       <Animated.View style={[styles.abs, {
         left: PKG_LEFT, top: PKG_TOP,
         width: PKG_W, height: PKG_H,
         zIndex: 30,
         transform: [{ translateY: pkgSlide }],
       }]}>
-        <Image source={require('@/assets/images/pack_bag_animals.png')}
+        <Image source={packBagImg as any}
           style={{ width: PKG_W, height: PKG_H }} resizeMode="contain" />
         <Animated.View style={[styles.cutLine, { width: cutWidth, top: CUT_Y - 1 }]} />
       </Animated.View>
 
-      {/* ── Top half ─────────────────────────────────────────────────────── */}
+      {/* Top half */}
       <Animated.View style={[styles.abs, {
         left: PKG_LEFT, top: PKG_TOP,
         width: PKG_W, height: CUT_Y,
@@ -391,14 +400,14 @@ export default function PackOpeningScreen() {
         opacity: topHalfOpacity,
         transform: [{ translateY: topHalfY }],
       }]}>
-        <Image source={require('@/assets/images/pack_bag_animals.png')}
+        <Image source={packBagImg as any}
           style={{ width: PKG_W, height: PKG_H }} resizeMode="contain" />
       </Animated.View>
 
-      {/* ── 3 card slots (rendered back→front for correct z stacking) ──── */}
+      {/* 3 card slots — rendered back→front */}
       {[2, 1, 0].map(renderSlot)}
 
-      {/* ── Top nav ──────────────────────────────────────────────────────── */}
+      {/* Top nav */}
       <Animated.View style={[styles.navBar, { opacity: navOpacity }]}>
         <View style={styles.progressTrack}>
           <View style={[styles.progressFill, { width: `${progress * 100}%` as any }]} />
@@ -433,31 +442,41 @@ const styles = StyleSheet.create({
   face: {
     width: '100%', height: '100%',
     borderRadius: 20,
-    backgroundColor: CARD_COLOR,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
+    paddingBottom: 130,
     backfaceVisibility: 'hidden',
   },
 
-  illustration: { width: 90, height: 90, marginBottom: 16 },
-  wordText:    { fontSize: 48, color: '#fff', fontFamily: 'Volte-Bold' },
+  frontContent: {},
+  illustration: { width: 90, height: 90, position: 'absolute', top: '28%' },
+  wordText:     { fontSize: 48, fontFamily: 'Volte-Bold' },
   tapHint: {
     position: 'absolute', bottom: 20,
-    fontSize: 13, color: 'rgba(255,255,255,0.35)', fontFamily: 'Volte-Semibold',
+    fontSize: 13, fontFamily: 'Volte-Semibold',
   },
-  pinyinText: { fontSize: 24, color: 'rgba(255,255,255,0.7)', fontFamily: 'Volte-Semibold', marginBottom: 12 },
+  audioBtn: {
+    position: 'absolute', bottom: 16, right: 16,
+  },
+  // Back face
+  backIllustration: {
+    position: 'absolute', top: 20, right: 20,
+    width: 72, height: 72,
+  },
+  backWord:    { fontSize: 36, fontFamily: 'Volte-Bold', marginBottom: 4 },
+  backPinyin:  { fontSize: 16, fontFamily: 'Volte-Semibold' },
+  backMeaning: { fontSize: 28, fontFamily: 'Volte-Bold', marginTop: 'auto' as any, marginBottom: 8 },
   posPill: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 8,
-    paddingHorizontal: 10, paddingVertical: 4,
-    marginBottom: 16,
+    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4,
   },
-  posText:    { fontSize: 13, color: 'rgba(255,255,255,0.7)', fontFamily: 'Volte-Semibold' },
-  meaningText:{ fontSize: 36, color: '#fff', fontFamily: 'Volte-Bold' },
+  posText:     { fontSize: 13, fontFamily: 'Volte-Semibold' },
+  // Legacy — kept for safety but no longer used on back face
+  pinyinText:  { fontSize: 24, fontFamily: 'Volte-Semibold', marginBottom: 12 },
+  meaningText: { fontSize: 36, fontFamily: 'Volte-Bold' },
 
-  navBar: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 50 },
-  progressTrack: { height: 3, backgroundColor: 'rgba(255,255,255,0.25)', marginTop: 50 },
-  progressFill:  { height: '100%', backgroundColor: 'rgba(255,255,255,0.85)' },
+  navBar:        { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 50 },
+  progressTrack: { height: 3, backgroundColor: 'rgba(255,255,255,0.25)', marginTop: 64, marginHorizontal: 16, borderRadius: 2 },
+  progressFill:  { height: '100%', backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: 2 },
   navRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 24, paddingTop: 16,
