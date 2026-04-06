@@ -1,13 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Audio } from 'expo-av';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Animated,
   Dimensions,
   Easing,
   Image,
+  Modal,
   PanResponder,
   Pressable,
   StatusBar,
   StyleSheet,
+  Switch,
   Text,
   TouchableOpacity,
   View,
@@ -16,6 +20,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { getCurrentPack } from '@/constants/pack-store';
 import { cardTextColor } from '@/constants/mock-packs';
+
+const AUTOPLAY_KEY = 'langsnap:autoplay_audio';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
@@ -66,6 +72,73 @@ export default function PackOpeningScreen() {
 
   const globalIndexRef = useRef(0);
   const [globalIndex, setGlobalIndex] = useState(0);
+
+  const soundRef      = useRef<Audio.Sound | null>(null);
+  const isPlayingRef  = useRef(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const autoPlayRef              = useRef(true);
+  const [autoPlay, setAutoPlay]  = useState(true);
+  const [showSettings, setShowSettings]         = useState(false);
+  const [pendingAutoPlay, setPendingAutoPlay]   = useState(true);
+  const settingsSlide = useRef(new Animated.Value(300)).current;
+  const settingsFade  = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+    AsyncStorage.getItem(AUTOPLAY_KEY).then(val => {
+      const saved = val !== 'false';
+      setAutoPlay(saved);
+      autoPlayRef.current = saved;
+    });
+    return () => { soundRef.current?.unloadAsync(); };
+  }, []);
+
+  function openSettings() {
+    setPendingAutoPlay(autoPlay);
+    setShowSettings(true);
+    Animated.parallel([
+      Animated.timing(settingsFade,  { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.spring(settingsSlide, { toValue: 0, tension: 65, friction: 11, useNativeDriver: true }),
+    ]).start();
+  }
+
+  function closeSettings() {
+    Animated.parallel([
+      Animated.timing(settingsFade,  { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(settingsSlide, { toValue: 300, duration: 220, useNativeDriver: true }),
+    ]).start(() => setShowSettings(false));
+  }
+
+  function saveSettings() {
+    setAutoPlay(pendingAutoPlay);
+    autoPlayRef.current = pendingAutoPlay;
+    AsyncStorage.setItem(AUTOPLAY_KEY, String(pendingAutoPlay));
+    closeSettings();
+  }
+
+  async function playAudio(audioSrc: number | string) {
+    if (!isInteractiveRef.current || !audioSrc) return;
+    if (isPlayingRef.current) return;
+    try {
+      isPlayingRef.current = true;
+      setIsPlaying(true);
+      await soundRef.current?.unloadAsync();
+      soundRef.current = null;
+      const { sound } = await Audio.Sound.createAsync(audioSrc as number);
+      soundRef.current = sound;
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          isPlayingRef.current = false;
+          setIsPlaying(false);
+        }
+      });
+      await sound.playAsync();
+    } catch {
+      isPlayingRef.current = false;
+      setIsPlaying(false);
+    }
+  }
 
   const isInteractiveRef = useRef(false);
   const isFlippedRef     = useRef(false);
@@ -160,6 +233,10 @@ export default function PackOpeningScreen() {
       slotX[front].setValue(0);
       slotFlip[front].setValue(0);
       isFlippedRef.current = false;
+      isPlayingRef.current = false;
+      setIsPlaying(false);
+      soundRef.current?.unloadAsync();
+      soundRef.current = null;
 
       frontSlotRef.current = mid;
 
@@ -180,6 +257,12 @@ export default function PackOpeningScreen() {
       }
 
       setGlobalIndex(nextGI);
+
+      // Auto-play pronunciation for the new front card
+      const nextAudio = cards[nextGI]?.audioUrl;
+      if (autoPlayRef.current && nextAudio) {
+        setTimeout(() => playAudio(nextAudio as number), 400);
+      }
 
       if (willHaveBack && newBackCardIdx < cards.length) {
         requestAnimationFrame(() => {
@@ -263,7 +346,12 @@ export default function PackOpeningScreen() {
       Animated.parallel([
         Animated.timing(bgAnim,     { toValue: 1, duration: 600, useNativeDriver: false }),
         Animated.timing(navOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-      ]).start(() => { isInteractiveRef.current = true; });
+      ]).start(() => {
+        isInteractiveRef.current = true;
+        if (autoPlayRef.current && cards[0]?.audioUrl) {
+          setTimeout(() => playAudio(cards[0].audioUrl as number), 300);
+        }
+      });
     }, 5200);
 
     return () => [t1, t2, t3, t4].forEach(clearTimeout);
@@ -328,9 +416,6 @@ export default function PackOpeningScreen() {
             <Image source={card.illustrationUrl as any} style={styles.illustration} resizeMode="contain" />
             <Text style={[styles.wordText, { color: txtColor }]}>{card.word}</Text>
             <Text style={[styles.tapHint, { color: mutedTxt }]}>Tap to reveal</Text>
-            <TouchableOpacity style={styles.audioBtn} hitSlop={12} onPress={() => {}}>
-              <Ionicons name="volume-medium-outline" size={22} color={mutedTxt} />
-            </TouchableOpacity>
           </Animated.View>
           {/* Back face */}
           <Animated.View style={[styles.abs, styles.face, {
@@ -341,26 +426,28 @@ export default function PackOpeningScreen() {
             justifyContent: 'flex-start',
             padding: 24,
           }]}>
-            {/* Illustration — top right */}
             <Image
               source={card.illustrationUrl as any}
               style={styles.backIllustration}
               resizeMode="contain"
             />
-            {/* Top-left: word, pinyin, POS */}
             <Text style={[styles.backWord,   { color: txtColor }]}>{card.word}</Text>
             <Text style={[styles.backPinyin, { color: mutedTxt }]}>{card.pinyin}</Text>
             <View style={[styles.posPill, { backgroundColor: pillBg, marginTop: 8 }]}>
               <Text style={[styles.posText, { color: mutedTxt }]}>{card.partOfSpeech}</Text>
             </View>
-            {/* Bottom-left: meaning */}
             <Text style={[styles.backMeaning, { color: txtColor }]}>{card.meaning}</Text>
             <Text style={[styles.tapHint, { color: mutedTxt, alignSelf: 'center' }]}>Tap to flip back</Text>
-            <TouchableOpacity style={styles.audioBtn} hitSlop={12} onPress={() => {}}>
-              <Ionicons name="volume-medium-outline" size={22} color={mutedTxt} />
-            </TouchableOpacity>
           </Animated.View>
         </Pressable>
+        {/* Audio button outside Pressable so it always receives touches */}
+        <TouchableOpacity
+          style={[styles.audioBtn, { zIndex: zIndex + 10 }]}
+          hitSlop={12}
+          onPress={() => playAudio(card.audioUrl)}
+        >
+          <Ionicons name={isPlaying && slotIdx === frontSlotRef.current ? 'volume-high' : 'volume-medium-outline'} size={22} color={mutedTxt} />
+        </TouchableOpacity>
       </Animated.View>
     );
   };
@@ -418,11 +505,41 @@ export default function PackOpeningScreen() {
               style={{ transform: [{ scaleX: -1 }] }} />
           </TouchableOpacity>
           <Text style={styles.navTitle}>Learn</Text>
-          <TouchableOpacity hitSlop={12}>
+          <TouchableOpacity hitSlop={12} onPress={openSettings}>
             <Ionicons name="settings-outline" size={24} color="white" />
           </TouchableOpacity>
         </View>
       </Animated.View>
+
+      {/* Settings bottom sheet */}
+      {showSettings && (
+        <Modal transparent animationType="none" visible={showSettings} onRequestClose={closeSettings}>
+          <Animated.View style={[styles.settingsOverlay, { opacity: settingsFade }]}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={closeSettings} />
+          </Animated.View>
+          <Animated.View style={[styles.settingsSheet, { transform: [{ translateY: settingsSlide }] }]}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Settings</Text>
+
+            <View style={styles.settingRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.settingLabel}>Auto-play pronunciation</Text>
+                <Text style={styles.settingDesc}>Plays audio automatically when you swipe to the next card</Text>
+              </View>
+              <Switch
+                value={pendingAutoPlay}
+                onValueChange={setPendingAutoPlay}
+                trackColor={{ false: '#D1D5DB', true: BRAND_PURPLE }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+
+            <TouchableOpacity style={styles.saveBtn} onPress={saveSettings} activeOpacity={0.85}>
+              <Text style={styles.saveBtnText}>Save</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </Modal>
+      )}
     </Animated.View>
   );
 }
@@ -450,7 +567,7 @@ const styles = StyleSheet.create({
 
   frontContent: {},
   illustration: { width: 90, height: 90, position: 'absolute', top: '28%' },
-  wordText:     { fontSize: 48, fontFamily: 'Volte-Bold' },
+  wordText:     { fontSize: 48, fontFamily: 'Volte-Semibold' },
   tapHint: {
     position: 'absolute', bottom: 20,
     fontSize: 13, fontFamily: 'Volte-Semibold',
@@ -463,16 +580,16 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 20, right: 20,
     width: 72, height: 72,
   },
-  backWord:    { fontSize: 36, fontFamily: 'Volte-Bold', marginBottom: 4 },
+  backWord:    { fontSize: 36, fontFamily: 'Volte-Semibold', marginBottom: 4 },
   backPinyin:  { fontSize: 16, fontFamily: 'Volte-Semibold' },
-  backMeaning: { fontSize: 28, fontFamily: 'Volte-Bold', marginTop: 'auto' as any, marginBottom: 8 },
+  backMeaning: { fontSize: 28, fontFamily: 'Volte-Semibold', marginTop: 'auto' as any, marginBottom: 8 },
   posPill: {
     borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4,
   },
   posText:     { fontSize: 13, fontFamily: 'Volte-Semibold' },
   // Legacy — kept for safety but no longer used on back face
   pinyinText:  { fontSize: 24, fontFamily: 'Volte-Semibold', marginBottom: 12 },
-  meaningText: { fontSize: 36, fontFamily: 'Volte-Bold' },
+  meaningText: { fontSize: 36, fontFamily: 'Volte-Semibold' },
 
   navBar:        { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 50 },
   progressTrack: { height: 3, backgroundColor: 'rgba(255,255,255,0.25)', marginTop: 64, marginHorizontal: 16, borderRadius: 2 },
@@ -482,4 +599,62 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24, paddingTop: 16,
   },
   navTitle: { fontSize: 18, color: '#fff', fontFamily: 'Volte-Semibold' },
+
+  // ── Settings sheet ────────────────────────────────────────────────────────
+  settingsOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  settingsSheet: {
+    position: 'absolute',
+    bottom: 0, left: 0, right: 0,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+  },
+  sheetHandle: {
+    width: 40, height: 4,
+    backgroundColor: '#D1D5DB',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 12, marginBottom: 20,
+  },
+  sheetTitle: {
+    fontSize: 18,
+    fontFamily: 'Volte-Semibold',
+    color: '#262626',
+    marginBottom: 24,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    paddingVertical: 8,
+    marginBottom: 32,
+  },
+  settingLabel: {
+    fontSize: 16,
+    fontFamily: 'Volte-Semibold',
+    color: '#262626',
+    marginBottom: 4,
+  },
+  settingDesc: {
+    fontSize: 13,
+    fontFamily: 'Volte',
+    color: '#9097A3',
+  },
+  saveBtn: {
+    backgroundColor: '#7D69AB',
+    borderRadius: 12,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveBtnText: {
+    fontSize: 16,
+    fontFamily: 'Volte-Semibold',
+    color: '#FFFFFF',
+  },
 });

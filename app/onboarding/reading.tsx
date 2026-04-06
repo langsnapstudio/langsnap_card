@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
 
   heading: {
     fontSize: 28, lineHeight: 36,
-    color: TEXT_DARK, fontFamily: 'Volte-Bold',
+    color: TEXT_DARK, fontFamily: 'Volte-Semibold',
     marginBottom: 8,
   },
   subheading: {

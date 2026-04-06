@@ -10,7 +10,7 @@ export type Card = {
   meaning: string;
   partOfSpeech: string;
   illustrationUrl: number | string; // number = local require, string = Supabase URL
-  audioUrl: string;                 // Supabase URL (empty for now)
+  audioUrl: number | string;        // number = local require, string = Supabase URL
   cardColor: string;                // hex, picked per card in back office
 };
 
@@ -39,18 +39,23 @@ export type DeckMeta = {
 };
 
 // ── Card color palette (from Langsnap design system) ──────────────────────────
-// Token names match the Figma variable names (e.g. "indigo-card").
-// Hex values are the resolved Tailwind primitives from the DS Foundation file.
+// All 14 presets — token names match the Figma variable names.
+// Hex values resolved directly from DS Foundation file variables (figma_execute).
 export const CARD_COLOR_PALETTE: Record<string, string> = {
-  'indigo-card':  '#312e81', // indigo/900
-  'sky-card':     '#7dd3fc', // sky/300
-  'yellow-card':  '#fef08a', // yellow/200
-  'cyan-card':    '#86efac', // green/300
-  'pink-card':    '#f472b6', // pink/400
-  'rose-card':    '#fb7185', // rose/400
-  'emerald-card': '#059669', // emerald/600
-  'white-card':   '#fafafa', // neutral/50
-  'black-card':   '#262626', // neutral/800
+  'white-card':      '#fafafa', // neutral/50
+  'cream-card':      '#f4f0e8', // brand/secondary-500
+  'yellow-card':     '#fef08a', // yellow/200
+  'orange-card':     '#f6a275', // orange/400
+  'rose-card':       '#fb7185', // rose/400
+  'pink-card':       '#f472b6', // pink/400
+  'green-card':      '#86efac', // green/300
+  'emerald-card':    '#059669', // emerald/600
+  'teal-card':       '#2dd4bf', // teal/400
+  'sky-card':        '#7dd3fc', // sky/300
+  'deep-blue-card':  '#056b96', // deep-blue/500
+  'indigo-card':     '#312e81', // indigo/900
+  'brown-card':      '#ce9c89', // brown/400
+  'black-card':      '#262626', // neutral/800
 };
 
 // Returns '#ffffff' or '#1a1a1a' depending on the card's background luminance,
@@ -92,16 +97,16 @@ export const DECK_DATA: Record<string, DeckMeta> = {
         thumbnail: require('../assets/images/illustration-cat.png'),
         energyCost: 0, isLocked: false, isPremium: false,
         cards: [
-          { id: '1',  word: '猫',   pinyin: 'māo',    meaning: 'Cat',     partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-cat.png'),     audioUrl: '', cardColor: '#312e81' }, // indigo-card
-          { id: '2',  word: '狗',   pinyin: 'gǒu',    meaning: 'Dog',     partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-dog.png'),     audioUrl: '', cardColor: '#7dd3fc' }, // sky-card
-          { id: '3',  word: '鸡',   pinyin: 'jī',     meaning: 'Chicken', partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-chicken.png'), audioUrl: '', cardColor: '#fef08a' }, // yellow-card
-          { id: '4',  word: '猪',   pinyin: 'zhū',    meaning: 'Pig',     partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-pig.png'),     audioUrl: '', cardColor: '#86efac' }, // cyan-card
-          { id: '5',  word: '牛',   pinyin: 'niú',    meaning: 'Cow',     partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-cow.png'),     audioUrl: '', cardColor: '#f472b6' }, // pink-card
-          { id: '6',  word: '鸟',   pinyin: 'niǎo',   meaning: 'Bird',    partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-bird.png'),    audioUrl: '', cardColor: '#fb7185' }, // rose-card
-          { id: '7',  word: '鱼',   pinyin: 'yú',     meaning: 'Fish',    partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-fish.png'),    audioUrl: '', cardColor: '#059669' }, // emerald-card
-          { id: '8',  word: '马',   pinyin: 'mǎ',     meaning: 'Horse',   partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-horse.png'),   audioUrl: '', cardColor: '#fafafa' }, // white-card
-          { id: '9',  word: '老鼠', pinyin: 'lǎoshǔ', meaning: 'Mouse',   partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-mouse.png'),   audioUrl: '', cardColor: '#262626' }, // black-card
-          { id: '10', word: '老虎', pinyin: 'lǎohǔ',  meaning: 'Tiger',   partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-tiger.png'),   audioUrl: '', cardColor: '#312e81' }, // indigo-card
+          { id: '1',  word: '猫',   pinyin: 'māo',    meaning: 'Cat',     partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-cat.png'),     audioUrl: require('../assets/audio/01 CN_Cat.MP3'),     cardColor: '#f6a275' }, // orange-card
+          { id: '2',  word: '狗',   pinyin: 'gǒu',    meaning: 'Dog',     partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-dog.png'),     audioUrl: require('../assets/audio/02 CN_Dog.MP3'),     cardColor: '#fef08a' }, // yellow-card
+          { id: '3',  word: '鸡',   pinyin: 'jī',     meaning: 'Chicken', partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-chicken.png'), audioUrl: require('../assets/audio/03 CN_Chicken.MP3'), cardColor: '#7dd3fc' }, // sky-card
+          { id: '4',  word: '猪',   pinyin: 'zhū',    meaning: 'Pig',     partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-pig.png'),     audioUrl: require('../assets/audio/04 CN_Pig.MP3'),     cardColor: '#f472b6' }, // pink-card
+          { id: '5',  word: '牛',   pinyin: 'niú',    meaning: 'Cow',     partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-cow.png'),     audioUrl: require('../assets/audio/05 CN_Cow.MP3'),     cardColor: '#2dd4bf' }, // teal-card
+          { id: '6',  word: '鸟',   pinyin: 'niǎo',   meaning: 'Bird',    partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-bird.png'),    audioUrl: require('../assets/audio/06 CN_Bird.MP3'),    cardColor: '#ce9c89' }, // brown-card
+          { id: '7',  word: '鱼',   pinyin: 'yú',     meaning: 'Fish',    partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-fish.png'),    audioUrl: require('../assets/audio/07 CN_Fish.MP3'),    cardColor: '#7dd3fc' }, // sky-card
+          { id: '8',  word: '马',   pinyin: 'mǎ',     meaning: 'Horse',   partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-horse.png'),   audioUrl: require('../assets/audio/08 CN_Horse.MP3'),   cardColor: '#ce9c89' }, // brown-card
+          { id: '9',  word: '老鼠', pinyin: 'lǎoshǔ', meaning: 'Mouse',   partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-mouse.png'),   audioUrl: require('../assets/audio/09 CN_Mouse.MP3'),   cardColor: '#262626' }, // black-card
+          { id: '10', word: '老虎', pinyin: 'lǎohǔ',  meaning: 'Tiger',   partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-tiger.png'),   audioUrl: require('../assets/audio/10 CN_Tiger.MP3'),   cardColor: '#312e81' }, // indigo-card
         ],
       },
       {
@@ -140,7 +145,7 @@ export const DECK_DATA: Record<string, DeckMeta> = {
           { id: '2', word: '苹果', pinyin: 'píngguǒ',   meaning: 'Apple',      partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-pineapple.png'), audioUrl: '', cardColor: '#fb7185' }, // rose-card
           { id: '3', word: '香蕉', pinyin: 'xiāngjiāo', meaning: 'Banana',     partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-pineapple.png'), audioUrl: '', cardColor: '#fef08a' }, // yellow-card
           { id: '4', word: '橙子', pinyin: 'chéngzi',   meaning: 'Orange',     partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-pineapple.png'), audioUrl: '', cardColor: '#f472b6' }, // pink-card
-          { id: '5', word: '西瓜', pinyin: 'xīguā',     meaning: 'Watermelon', partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-pineapple.png'), audioUrl: '', cardColor: '#86efac' }, // cyan-card
+          { id: '5', word: '西瓜', pinyin: 'xīguā',     meaning: 'Watermelon', partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-pineapple.png'), audioUrl: '', cardColor: '#86efac' }, // green-card
         ],
       },
       {

@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
   },
   backBtn:     { width: 36, alignItems: 'flex-start' },
   backIcon:    { fontSize: 32, color: TEXT_DARK, lineHeight: 36, marginTop: -4 },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 18, color: TEXT_DARK, fontFamily: 'Volte-Bold' },
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: 18, color: TEXT_DARK, fontFamily: 'Volte-Semibold' },
   energyBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -212,6 +212,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   cardImage: { width: '100%', height: '100%' },
-  cardTitle:    { fontSize: 15, color: TEXT_DARK,  fontFamily: 'Volte-Bold',   marginBottom: 2 },
+  cardTitle:    { fontSize: 15, color: TEXT_DARK,  fontFamily: 'Volte-Semibold',   marginBottom: 2 },
   cardSubtitle: { fontSize: 13, color: TEXT_MUTED, fontFamily: 'Volte' },
 });
