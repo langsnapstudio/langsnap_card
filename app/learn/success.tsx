@@ -123,7 +123,7 @@ function FanCardView({ card, size = 160 }: { card: Card; size?: number }) {
       shadowOpacity: 0.2, shadowRadius: 16, elevation: 8,
     }}>
       <Image source={card.illustrationUrl as any} style={{ width: imgSize, height: imgSize }} resizeMode="contain" />
-      <Text style={{ fontSize, color: txtColor, fontFamily: 'Volte-Bold', marginTop: 8 }}>{card.word}</Text>
+      <Text style={{ fontSize, color: txtColor, fontFamily: 'Volte-Semibold', marginTop: 8 }}>{card.word}</Text>
     </View>
   );
 }
@@ -226,7 +226,13 @@ export default function SuccessScreen() {
             <Text style={styles.countHighlight}>{cardCount ?? '10'}</Text>
             {' '}new flashcards
           </Text>
-          {deckTitle ? <Text style={styles.deckName}>{deckTitle}</Text> : null}
+          {deckTitle ? (
+            <Text style={styles.deckName}>
+              {'from '}
+              <Text style={styles.deckNameBold}>{deckTitle}</Text>
+              {' deck'}
+            </Text>
+          ) : null}
         </Animated.View>
 
         {/* ── Buttons ───────────────────────────────────────────────────── */}
@@ -286,7 +292,13 @@ export default function SuccessScreen() {
             <Text style={styles.shareCountHighlight}>{cardCount ?? '10'}</Text>
             {` new flashcards`}
           </Text>
-          {deckTitle ? <Text style={styles.shareDeckName}>{deckTitle}</Text> : null}
+          {deckTitle ? (
+            <Text style={styles.shareDeckName}>
+              {'from '}
+              <Text style={{ fontFamily: 'Volte', color: WHITE_70 }}>{deckTitle}</Text>
+              {' deck'}
+            </Text>
+          ) : null}
         </View>
 
         {/* Logo */}
@@ -307,21 +319,22 @@ export default function SuccessScreen() {
 const styles = StyleSheet.create({
   root:    { flex: 1, backgroundColor: BRAND_PURPLE, overflow: 'hidden' },
   safeArea: {
-    flex: 1, alignItems: 'center', justifyContent: 'space-between', paddingVertical: 40,
+    flex: 1, alignItems: 'center', justifyContent: 'space-between', paddingTop: 24, paddingBottom: 48,
   },
 
   // Live fan
   fanArea: { flex: 1, alignItems: 'center', justifyContent: 'center', width: '100%' },
 
   // Text
-  content:        { alignItems: 'center', paddingHorizontal: 32, gap: 8 },
-  wellDone:       { fontSize: 36, color: WHITE,  fontFamily: 'Volte-Bold', textAlign: 'center' },
-  subText:        { fontSize: 17, color: WHITE_70, fontFamily: 'Volte', textAlign: 'center' },
-  countHighlight: { color: WHITE, fontFamily: 'Volte-Bold' },
-  deckName:       { fontSize: 14, color: WHITE_40, fontFamily: 'Volte', textAlign: 'center' },
+  content:        { alignItems: 'center', paddingHorizontal: 32, gap: 8, marginBottom: 32 },
+  wellDone:       { fontSize: 36, color: '#fef08a', fontFamily: 'Volte-Semibold', textAlign: 'center' },
+  subText:        { fontSize: 14, color: WHITE_70, fontFamily: 'Volte-Semibold', textAlign: 'center' },
+  countHighlight: { color: WHITE_70, fontFamily: 'Volte-Semibold' },
+  deckName:       { fontSize: 14, color: WHITE_70, fontFamily: 'Volte-Semibold', textAlign: 'center' },
+  deckNameBold:   { fontFamily: 'Volte-Semibold', color: WHITE_70 },
 
   // Buttons
-  buttons: { width: '100%', paddingHorizontal: 24, gap: 4, paddingTop: 32 },
+  buttons: { width: '100%', paddingHorizontal: 24, gap: 4, paddingTop: 0 },
   shareBtn: {
     width: '100%', height: 52, borderRadius: 14,
     backgroundColor: 'rgba(255,255,255,0.2)',
@@ -351,9 +364,9 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   shareTextBlock: { alignItems: 'center', gap: 8 },
-  shareWellDone:       { fontSize: 40, color: WHITE,  fontFamily: 'Volte-Bold', textAlign: 'center' },
+  shareWellDone:       { fontSize: 40, color: WHITE,  fontFamily: 'Volte-Semibold', textAlign: 'center' },
   shareSubText:        { fontSize: 18, color: WHITE_70, fontFamily: 'Volte', textAlign: 'center' },
-  shareCountHighlight: { color: WHITE, fontFamily: 'Volte-Bold' },
-  shareDeckName:       { fontSize: 14, color: WHITE_40, fontFamily: 'Volte', textAlign: 'center' },
+  shareCountHighlight: { color: WHITE_70, fontFamily: 'Volte' },
+  shareDeckName:       { fontSize: 17, color: WHITE_70, fontFamily: 'Volte', textAlign: 'center' },
   shareLogo:           { width: 100, height: 40 },
 });

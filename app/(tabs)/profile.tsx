@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
   },
   avatarImg: { width: 96, height: 96 },
 
-  name:     { fontSize: 22, color: TEXT_DARK, fontFamily: 'Volte-Bold', marginBottom: 4 },
+  name:     { fontSize: 22, color: TEXT_DARK, fontFamily: 'Volte-Semibold', marginBottom: 4 },
   username: { fontSize: 15, color: TEXT_MUTED, fontFamily: 'Volte-Medium', marginBottom: 32 },
 
   divider: { width: '100%', height: 1, backgroundColor: '#E8E5DF', marginVertical: 20 },

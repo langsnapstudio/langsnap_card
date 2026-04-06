@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
   },
   deckCover:     { width: 96, height: 96, borderRadius: 18 },
   deckMeta:      { flex: 1, gap: 2 },
-  deckTitle:     { fontSize: 24, color: TEXT_DARK,    fontFamily: 'Volte-Bold' },
+  deckTitle:     { fontSize: 24, color: TEXT_DARK,    fontFamily: 'Volte-Semibold' },
   deckSubtitle:  { fontSize: 15, color: TEXT_MUTED,   fontFamily: 'Volte', marginBottom: 4 },
   deckWordCount: { fontSize: 15, color: BRAND_PURPLE, fontFamily: 'Volte-Semibold' },
 
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   packRowLocked: { opacity: 0.6 },
   packThumb:     { width: 60, height: 60, borderRadius: 10 },
   packInfo:      { flex: 1 },
-  packLevel:     { fontSize: 17, color: TEXT_DARK,  fontFamily: 'Volte-Bold',   marginBottom: 2 },
+  packLevel:     { fontSize: 17, color: TEXT_DARK,  fontFamily: 'Volte-Semibold',   marginBottom: 2 },
   packTextLocked:{ color: TEXT_MUTED },
   packCards:     { fontSize: 13, color: TEXT_MUTED, fontFamily: 'Volte' },
 
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   },
   sheetClose: { alignSelf: 'flex-end', marginBottom: 4 },
   sheetTitle: {
-    fontSize: 20, color: TEXT_DARK, fontFamily: 'Volte-Bold',
+    fontSize: 20, color: TEXT_DARK, fontFamily: 'Volte-Semibold',
     textAlign: 'center', marginBottom: 20,
   },
   sheetPreview: {
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   sheetThumb:        { width: 60, height: 60, borderRadius: 10 },
-  sheetPreviewLevel: { fontSize: 17, color: TEXT_DARK, fontFamily: 'Volte-Bold', marginBottom: 2 },
+  sheetPreviewLevel: { fontSize: 17, color: TEXT_DARK, fontFamily: 'Volte-Semibold', marginBottom: 2 },
   sheetPreviewCards: { fontSize: 14, color: TEXT_MUTED, fontFamily: 'Volte' },
   sheetMessage: {
     fontSize: 16, color: TEXT_DARK, fontFamily: 'Volte-Semibold',

@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     marginBottom: 16,
   },
-  sectionTitle: { fontSize: 22, color: TEXT_DARK, fontFamily: 'Volte-Bold' },
+  sectionTitle: { fontSize: 22, color: TEXT_DARK, fontFamily: 'Volte-Semibold' },
   showAll:      { fontSize: 14, color: TEXT_MUTED, fontFamily: 'Volte-Medium' },
 
   // Deck row
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
   coverImage: { width: '100%', height: '100%' },
 
   // Shared card text
-  deckTitle:    { fontSize: 15, color: TEXT_DARK,  fontFamily: 'Volte-Bold',   marginBottom: 2 },
+  deckTitle:    { fontSize: 15, color: TEXT_DARK,  fontFamily: 'Volte-Semibold',   marginBottom: 2 },
   deckSubtitle: { fontSize: 13, color: TEXT_MUTED, fontFamily: 'Volte' },
 
   // Welcome sheet
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   creatorImage:   { width: 70, height: 70 },
-  welcomeTitle:   { fontSize: 22, color: TEXT_DARK, fontFamily: 'Volte-Bold', textAlign: 'center', marginBottom: 16 },
+  welcomeTitle:   { fontSize: 22, color: TEXT_DARK, fontFamily: 'Volte-Semibold', textAlign: 'center', marginBottom: 16 },
   bodyBlock:      { marginBottom: 28 },
   bodyPara:       { marginTop: 14 },
   welcomeBody:    { fontSize: 15, lineHeight: 24, color: TEXT_MUTED, fontFamily: 'Volte', textAlign: 'center' },
