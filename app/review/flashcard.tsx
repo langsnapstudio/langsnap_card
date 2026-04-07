@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Audio } from 'expo-av';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Animated,
   Dimensions,
@@ -16,10 +15,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { getReviewSession } from '@/constants/review-store';
+import { getReviewSession, setReviewSummary } from '@/constants/review-store';
 import { cardTextColor } from '@/constants/mock-packs';
-
-const AUTOPLAY_KEY = 'langsnap:autoplay_audio';
+import { saveSRSResults } from '@/constants/srs-store';
 
 // ── Layout ────────────────────────────────────────────────────────────────────
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
@@ -28,7 +26,9 @@ const BRAND_PURPLE = '#7D69AB';
 const CARD_W    = Math.min(320, SCREEN_W - 48);
 const CARD_H    = CARD_W * (400 / 280);
 const CARD_LEFT = (SCREEN_W - CARD_W) / 2;
-const CARD_TOP  = (SCREEN_H - CARD_H) / 2 - 20;
+const CARD_CENTER_Y = (SCREEN_H - CARD_H) / 2;
+const BADGE_TOP     = CARD_CENTER_Y - 20 - 48; // fixed — badges don't move with card
+const CARD_TOP      = CARD_CENTER_Y + 4;        // card shifted down ~24px from original
 
 const DEPTH = [
   { scale: 0.93, dy:   0, opacity: 1.0 },
@@ -46,26 +46,36 @@ const REL_BACK   = DEPTH[2].scale / DEPTH[0].scale;
 export default function ReviewFlashcardScreen() {
   const router  = useRouter();
   const session = getReviewSession();
-  const cards   = session?.cards ?? [];
+  const config  = session?.config;
+
+  // Fixed queue — no recycling, one pass through all cards
+  const queueRef   = useRef([...(session?.cards ?? [])]);
+  const srsResults = useRef<Record<string, boolean>>({});  // cardId → true=got it, false=missed
+
+  const isAutoplay = config?.mode === 'autoplay';
 
   const slotCardsRef   = useRef([0, 1, 2]);
   const frontSlotRef   = useRef(0);
   const globalIndexRef = useRef(0);
   const [globalIndex, setGlobalIndex] = useState(0);
 
-  const soundRef     = useRef<Audio.Sound | null>(null);
-  const isPlayingRef = useRef(false);
+  const soundRef      = useRef<Audio.Sound | null>(null);
+  const isPlayingRef  = useRef(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const autoPlayRef  = useRef(true);
+  const autoPlayRef   = useRef(config?.autoplayAudio ?? true);
+  const isAutoplayRef = useRef(isAutoplay);
 
   // Start interactive immediately — no pack animation
   const isInteractiveRef = useRef(true);
   const isFlippedRef     = useRef(false);
   const isDraggingRef    = useRef(false);
 
+  // Timer ref for autoplay auto-advance
+  const autoplayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // ── Slot animated values ──────────────────────────────────────────────────
   const slotOpacity = useRef(
-    DEPTH.map((d, i) => new Animated.Value(i < cards.length ? d.opacity : 0))
+    DEPTH.map((d, i) => new Animated.Value(i < queueRef.current.length ? d.opacity : 0))
   ).current;
   const slotScale   = useRef([1, REL_MID, REL_BACK].map(s => new Animated.Value(s))).current;
   const slotDy      = useRef(DEPTH.map(d => new Animated.Value(d.dy))).current;
@@ -76,15 +86,13 @@ export default function ReviewFlashcardScreen() {
   }))).current;
 
   // ── Flip values ───────────────────────────────────────────────────────────
-  const slotFlip        = useRef(Array.from({ length: 3 }, () => new Animated.Value(0))).current;
-  const slotFrontRotY   = useRef(slotFlip.map(f => f.interpolate({ inputRange: [0, 180], outputRange: ['0deg', '180deg'] }))).current;
-  const slotBackRotY    = useRef(slotFlip.map(f => f.interpolate({ inputRange: [0, 180], outputRange: ['180deg', '360deg'] }))).current;
+  const slotFlip         = useRef(Array.from({ length: 3 }, () => new Animated.Value(0))).current;
+  const slotFrontRotY    = useRef(slotFlip.map(f => f.interpolate({ inputRange: [0, 180], outputRange: ['0deg', '180deg'] }))).current;
+  const slotBackRotY     = useRef(slotFlip.map(f => f.interpolate({ inputRange: [0, 180], outputRange: ['180deg', '360deg'] }))).current;
   const slotFrontOpacity = useRef(slotFlip.map(f => f.interpolate({ inputRange: [0, 89, 90, 180], outputRange: [1, 1, 0, 0] }))).current;
   const slotBackOpacity  = useRef(slotFlip.map(f => f.interpolate({ inputRange: [0, 89, 90, 180], outputRange: [0, 0, 1, 1] }))).current;
 
-  // ── Swipe label opacity (driven by front card X position) ─────────────────
-  // frontPanX mirrors the front slot's X so we can interpolate label opacity
-  // without state re-renders on every pan frame.
+  // ── Swipe label opacity (driven by front card X — no state re-renders) ────
   const frontPanX = useRef(new Animated.Value(0)).current;
 
   const gotItOpacity = frontPanX.interpolate({
@@ -101,14 +109,43 @@ export default function ReviewFlashcardScreen() {
   // ── Setup ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-    AsyncStorage.getItem(AUTOPLAY_KEY).then(val => {
-      autoPlayRef.current = val !== 'false';
-    });
-    if (cards[0]?.audioUrl) {
-      setTimeout(() => playAudio(cards[0].audioUrl as number), 500);
+    if (autoPlayRef.current && queueRef.current[0]?.audioUrl) {
+      setTimeout(() => playAudio(queueRef.current[0].audioUrl as number), 500);
     }
-    return () => { soundRef.current?.unloadAsync(); };
+    return () => {
+      soundRef.current?.unloadAsync();
+      if (autoplayTimerRef.current) clearTimeout(autoplayTimerRef.current);
+    };
   }, []);
+
+  // ── Autoplay timer ────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isAutoplay) return;
+    const autoFlip = config?.autoFlip ?? false;
+
+    if (autoFlip) {
+      // Phase 1: show front for 2s, then flip to back
+      autoplayTimerRef.current = setTimeout(() => {
+        const front = frontSlotRef.current;
+        isFlippedRef.current = true;
+        Animated.spring(slotFlip[front], {
+          toValue: 180, friction: 8, tension: 40, useNativeDriver: true,
+        }).start();
+        // Phase 2: show back for 2s, then exit
+        autoplayTimerRef.current = setTimeout(() => {
+          triggerAutoplayExitRef.current();
+        }, 2000);
+      }, 2000);
+    } else {
+      autoplayTimerRef.current = setTimeout(() => {
+        triggerAutoplayExitRef.current();
+      }, 4000);
+    }
+
+    return () => {
+      if (autoplayTimerRef.current) clearTimeout(autoplayTimerRef.current);
+    };
+  }, [globalIndex, isAutoplay]);
 
   // ── Audio ─────────────────────────────────────────────────────────────────
   async function playAudio(audioSrc: number | string) {
@@ -143,22 +180,77 @@ export default function ReviewFlashcardScreen() {
   };
 
   const getSlotColor = (slotIdx: number): string => {
-    const card = cards[slotCardsRef.current[slotIdx]];
+    const card = queueRef.current[slotCardsRef.current[slotIdx]];
     return card?.cardColor ?? '#6B5A9E';
   };
 
-  // ── Swipe exit ────────────────────────────────────────────────────────────
+  // ── Shared post-exit slot rotation ───────────────────────────────────────
+  const applySlotRotation = (front: number, mid: number, back: number, nextGI: number, willHaveMid: boolean, willHaveBack: boolean) => {
+    isFlippedRef.current  = false;
+    isPlayingRef.current  = false;
+    setIsPlaying(false);
+    soundRef.current?.unloadAsync();
+    soundRef.current = null;
+
+    frontSlotRef.current = mid;
+    const newBackCardIdx = nextGI + 2;
+    slotCardsRef.current[front] = newBackCardIdx;
+    slotOpacity[front].setValue(0);
+    slotScale[front].setValue(REL_BACK);
+    slotDy[front].setValue(-24);
+
+    slotScale[mid].setValue(1);        slotDy[mid].setValue(0);    slotOpacity[mid].setValue(1.0);
+    slotScale[back].setValue(REL_MID); slotDy[back].setValue(-12); slotOpacity[back].setValue(willHaveMid ? 1.0 : 0);
+
+    globalIndexRef.current = nextGI;
+
+    if (nextGI >= queueRef.current.length) {
+      // Session complete — save SRS and show summary
+      saveSRSResults(srsResults.current);
+      const queue = queueRef.current;
+      setReviewSummary({
+        remembered: queue.filter(c => srsResults.current[c.id] === true),
+        forgot:     queue.filter(c => srsResults.current[c.id] === false),
+      });
+      router.replace('/review/summary');
+      return;
+    }
+
+    setGlobalIndex(nextGI);
+
+    const nextAudio = queueRef.current[nextGI]?.audioUrl;
+    if (autoPlayRef.current && nextAudio) {
+      setTimeout(() => playAudio(nextAudio as number), 400);
+    }
+
+    if (willHaveBack && newBackCardIdx < queueRef.current.length) {
+      requestAnimationFrame(() => {
+        Animated.timing(slotOpacity[front], { toValue: 1.0, duration: 200, useNativeDriver: true }).start();
+      });
+    }
+  };
+
+  // ── Swipe exit (manual mode) ──────────────────────────────────────────────
   const triggerExitRef = useRef<(flyDir: 1 | -1) => void>(() => {});
   triggerExitRef.current = (flyDir) => {
-    const front  = frontSlotRef.current;
-    const mid    = (front + 1) % 3;
-    const back   = (front + 2) % 3;
-    const nextGI = globalIndexRef.current + 1;
+    const front   = frontSlotRef.current;
+    const mid     = (front + 1) % 3;
+    const back    = (front + 2) % 3;
+    const curGI   = globalIndexRef.current;
+    const nextGI  = curGI + 1;
+    const gotIt   = flyDir > 0;
+    const curCard = queueRef.current[curGI];
 
-    const willHaveMid  = nextGI + 1 < cards.length;
-    const willHaveBack = nextGI + 2 < cards.length;
-    const hasMid       = globalIndexRef.current + 1 < cards.length;
-    const hasBack      = globalIndexRef.current + 2 < cards.length;
+    // ── SRS: record result ────────────────────────────────────────────────
+    if (curCard) {
+      srsResults.current[curCard.id] = gotIt;
+    }
+
+    const qLen = queueRef.current.length;
+    const willHaveMid  = nextGI + 1 < qLen;
+    const willHaveBack = nextGI + 2 < qLen;
+    const hasMid       = curGI + 1 < qLen;
+    const hasBack      = curGI + 2 < qLen;
     const DUR          = 280;
     const ease         = Easing.out(Easing.quad);
 
@@ -180,41 +272,46 @@ export default function ReviewFlashcardScreen() {
     ]).start(() => {
       slotX[front].setValue(0);
       slotFlip[front].setValue(0);
-      isFlippedRef.current = false;
-      isPlayingRef.current = false;
-      setIsPlaying(false);
-      soundRef.current?.unloadAsync();
-      soundRef.current = null;
+      applySlotRotation(front, mid, back, nextGI, willHaveMid, willHaveBack);
+    });
+  };
 
-      frontSlotRef.current = mid;
-      const newBackCardIdx = nextGI + 2;
-      slotCardsRef.current[front] = newBackCardIdx;
-      slotOpacity[front].setValue(0);
-      slotScale[front].setValue(REL_BACK);
-      slotDy[front].setValue(-24);
+  // ── Autoplay exit (slide down + fade) ─────────────────────────────────────
+  const triggerAutoplayExitRef = useRef<() => void>(() => {});
+  triggerAutoplayExitRef.current = () => {
+    const front  = frontSlotRef.current;
+    const mid    = (front + 1) % 3;
+    const back   = (front + 2) % 3;
+    const nextGI = globalIndexRef.current + 1;
 
-      slotScale[mid].setValue(1);        slotDy[mid].setValue(0);    slotOpacity[mid].setValue(1.0);
-      slotScale[back].setValue(REL_MID); slotDy[back].setValue(-12); slotOpacity[back].setValue(willHaveMid ? 1.0 : 0);
+    const qLen = queueRef.current.length;
+    const willHaveMid  = nextGI + 1 < qLen;
+    const willHaveBack = nextGI + 2 < qLen;
+    const hasMid       = globalIndexRef.current + 1 < qLen;
+    const hasBack      = globalIndexRef.current + 2 < qLen;
+    const DUR          = 420;
+    const easeIn       = Easing.in(Easing.quad);
+    const easeOut      = Easing.out(Easing.quad);
 
-      globalIndexRef.current = nextGI;
-
-      if (nextGI >= cards.length) {
-        router.back();
-        return;
-      }
-
-      setGlobalIndex(nextGI);
-
-      const nextAudio = cards[nextGI]?.audioUrl;
-      if (autoPlayRef.current && nextAudio) {
-        setTimeout(() => playAudio(nextAudio as number), 400);
-      }
-
-      if (willHaveBack && newBackCardIdx < cards.length) {
-        requestAnimationFrame(() => {
-          Animated.timing(slotOpacity[front], { toValue: 1.0, duration: 200, useNativeDriver: true }).start();
-        });
-      }
+    Animated.parallel([
+      // Front card slides down + fades out
+      Animated.timing(slotDy[front],      { toValue: 80,      duration: DUR,       easing: easeIn,  useNativeDriver: true }),
+      Animated.timing(slotOpacity[front], { toValue: 0,       duration: DUR * 0.7, easing: easeIn,  useNativeDriver: true }),
+      // Mid rises to front
+      ...(hasMid ? [
+        Animated.timing(slotScale[mid],   { toValue: 1,       duration: DUR, easing: easeOut, useNativeDriver: true }),
+        Animated.timing(slotDy[mid],      { toValue: 0,       duration: DUR, easing: easeOut, useNativeDriver: true }),
+        Animated.timing(slotOpacity[mid], { toValue: 1.0,     duration: DUR,                  useNativeDriver: true }),
+      ] : []),
+      // Back rises to mid
+      ...(hasBack ? [
+        Animated.timing(slotScale[back],  { toValue: REL_MID, duration: DUR, easing: easeOut, useNativeDriver: true }),
+        Animated.timing(slotDy[back],     { toValue: -12,     duration: DUR, easing: easeOut, useNativeDriver: true }),
+        Animated.timing(slotOpacity[back],{ toValue: 1.0,     duration: DUR,                  useNativeDriver: true }),
+      ] : []),
+    ]).start(() => {
+      slotFlip[front].setValue(0);
+      applySlotRotation(front, mid, back, nextGI, willHaveMid, willHaveBack);
     });
   };
 
@@ -223,7 +320,10 @@ export default function ReviewFlashcardScreen() {
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, g) =>
-        isInteractiveRef.current && Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy),
+        !isAutoplayRef.current &&
+        isInteractiveRef.current &&
+        Math.abs(g.dx) > 8 &&
+        Math.abs(g.dx) > Math.abs(g.dy),
       onPanResponderGrant: () => { isDraggingRef.current = true; },
       onPanResponderMove: (_, g) => {
         slotX[frontSlotRef.current].setValue(g.dx);
@@ -256,7 +356,7 @@ export default function ReviewFlashcardScreen() {
     }).start();
   };
 
-  const progress = cards.length > 0 ? (globalIndex + 1) / cards.length : 0;
+  const progress = queueRef.current.length > 0 ? (globalIndex + 1) / queueRef.current.length : 0;
 
   const ghostLayout = {
     position: 'absolute' as const,
@@ -267,7 +367,7 @@ export default function ReviewFlashcardScreen() {
 
   // ── Render slot ───────────────────────────────────────────────────────────
   const renderSlot = (slotIdx: number) => {
-    const card   = cards[slotCardsRef.current[slotIdx]];
+    const card   = queueRef.current[slotCardsRef.current[slotIdx]];
     const zIndex = getZIndex(slotIdx);
     const bg     = getSlotColor(slotIdx);
     if (!card) return null;
@@ -299,21 +399,15 @@ export default function ReviewFlashcardScreen() {
             backgroundColor: bg,
             opacity: slotFrontOpacity[slotIdx],
             transform: [{ perspective: 1200 }, { rotateY: slotFrontRotY[slotIdx] }],
+            ...((config?.showIllustration === false) && { justifyContent: 'center', paddingBottom: 0 }),
           }]}>
-            {/* Swipe labels — only on front card, driven by Animated value (no state re-render) */}
-            {isFront && (
-              <>
-                <Animated.View style={[styles.swipeBadge, styles.gotItBadge, { opacity: gotItOpacity }]}>
-                  <Text style={styles.gotItText}>Got it</Text>
-                </Animated.View>
-                <Animated.View style={[styles.swipeBadge, styles.missedBadge, { opacity: missedOpacity }]}>
-                  <Text style={styles.missedText}>Missed it</Text>
-                </Animated.View>
-              </>
+            {(config?.showIllustration ?? true) && (
+              <Image source={card.illustrationUrl as any} style={styles.illustration} resizeMode="contain" />
             )}
-            <Image source={card.illustrationUrl as any} style={styles.illustration} resizeMode="contain" />
             <Text style={[styles.wordText, { color: txtColor }]}>{card.word}</Text>
-            <Text style={[styles.tapHint, { color: mutedTxt }]}>Tap to reveal</Text>
+            {!isAutoplay && (
+              <Text style={[styles.tapHint, { color: mutedTxt }]}>Tap to reveal</Text>
+            )}
           </Animated.View>
 
           {/* Back face */}
@@ -332,11 +426,13 @@ export default function ReviewFlashcardScreen() {
               <Text style={[styles.posText, { color: mutedTxt }]}>{card.partOfSpeech}</Text>
             </View>
             <Text style={[styles.backMeaning, { color: txtColor }]}>{card.meaning}</Text>
-            <Text style={[styles.tapHint, { color: mutedTxt, alignSelf: 'center' }]}>Tap to flip back</Text>
+            {!isAutoplay && (
+              <Text style={[styles.tapHint, { color: mutedTxt, alignSelf: 'center' }]}>Tap to flip back</Text>
+            )}
           </Animated.View>
         </Pressable>
 
-        {/* Audio button — outside Pressable to avoid touch interception */}
+        {/* Audio button */}
         <TouchableOpacity
           style={[styles.audioBtn, { zIndex: zIndex + 10 }]}
           hitSlop={12}
@@ -352,8 +448,7 @@ export default function ReviewFlashcardScreen() {
     );
   };
 
-  // ── Swipe hint labels (static, below card) ────────────────────────────────
-  // These fade as user swipes so only the relevant label stays visible.
+  // ── Swipe hint labels (manual mode only) ─────────────────────────────────
   const leftHintOpacity  = frontPanX.interpolate({ inputRange: [-50, 0, 50], outputRange: [0.2, 1, 0.2], extrapolate: 'clamp' });
   const rightHintOpacity = frontPanX.interpolate({ inputRange: [-50, 0, 50], outputRange: [0.2, 1, 0.2], extrapolate: 'clamp' });
 
@@ -364,17 +459,31 @@ export default function ReviewFlashcardScreen() {
       {/* 3 card slots — rendered back→front */}
       {[2, 1, 0].map(renderSlot)}
 
-      {/* Swipe hints row below cards */}
-      <View style={styles.hintsRow}>
-        <Animated.View style={[styles.hintPill, { opacity: leftHintOpacity }]}>
-          <Ionicons name="arrow-back" size={14} color="rgba(255,255,255,0.55)" />
-          <Text style={styles.hintText}>Missed it</Text>
-        </Animated.View>
-        <Animated.View style={[styles.hintPill, { opacity: rightHintOpacity }]}>
-          <Text style={styles.hintText}>Got it</Text>
-          <Ionicons name="arrow-forward" size={14} color="rgba(255,255,255,0.55)" />
-        </Animated.View>
-      </View>
+      {/* Got it / Missed it badges — above card stack, manual mode only */}
+      {!isAutoplay && (
+        <>
+          <Animated.View style={[styles.swipeBadge, styles.gotItBadge, { opacity: gotItOpacity }]}>
+            <Text style={styles.gotItText}>Got it</Text>
+          </Animated.View>
+          <Animated.View style={[styles.swipeBadge, styles.missedBadge, { opacity: missedOpacity }]}>
+            <Text style={styles.missedText}>Missed it</Text>
+          </Animated.View>
+        </>
+      )}
+
+      {/* Swipe hints row — manual mode only */}
+      {!isAutoplay && (
+        <View style={styles.hintsRow}>
+          <Animated.View style={[styles.hintPill, { opacity: leftHintOpacity }]}>
+            <Ionicons name="arrow-back" size={14} color="rgba(255,255,255,0.55)" />
+            <Text style={styles.hintText}>Missed it</Text>
+          </Animated.View>
+          <Animated.View style={[styles.hintPill, { opacity: rightHintOpacity }]}>
+            <Text style={styles.hintText}>Got it</Text>
+            <Ionicons name="arrow-forward" size={14} color="rgba(255,255,255,0.55)" />
+          </Animated.View>
+        </View>
+      )}
 
       {/* Top nav */}
       <View style={styles.navBar}>
@@ -418,29 +527,30 @@ const styles = StyleSheet.create({
   posPill:         { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   posText:         { fontSize: 13, fontFamily: 'Volte-Semibold' },
 
-  // Swipe feedback badges (on front face)
+  // Swipe feedback badges — positioned above card stack in purple area
   swipeBadge: {
     position: 'absolute',
-    top: 28,
+    top: BADGE_TOP,
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 10,
     borderWidth: 2.5,
+    zIndex: 30,
   },
   gotItBadge: {
-    right: 16,
-    borderColor: '#22C55E',
-    backgroundColor: 'rgba(34,197,94,0.12)',
-    transform: [{ rotate: '12deg' }],
+    right: 24,
+    borderColor: 'rgba(255,255,255,0.8)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    transform: [{ rotate: '6deg' }],
   },
-  gotItText: { fontSize: 15, fontFamily: 'Volte-Semibold', color: '#22C55E' },
+  gotItText:   { fontSize: 15, fontFamily: 'Volte-Semibold', color: '#ffffff' },
   missedBadge: {
-    left: 16,
-    borderColor: '#EF4444',
-    backgroundColor: 'rgba(239,68,68,0.12)',
-    transform: [{ rotate: '-12deg' }],
+    left: 24,
+    borderColor: 'rgba(255,255,255,0.8)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    transform: [{ rotate: '-6deg' }],
   },
-  missedText: { fontSize: 15, fontFamily: 'Volte-Semibold', color: '#EF4444' },
+  missedText: { fontSize: 15, fontFamily: 'Volte-Semibold', color: '#ffffff' },
 
   // Swipe hint labels below the card stack
   hintsRow: {
