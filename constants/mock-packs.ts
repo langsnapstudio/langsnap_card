@@ -12,6 +12,7 @@ export type Card = {
   illustrationUrl: number | string; // number = local require, string = Supabase URL
   audioUrl: number | string;        // number = local require, string = Supabase URL
   cardColor: string;                // hex, picked per card in back office
+  tags?: string[];                  // sub-category tags set by back office (e.g. 'Mammals', 'Birds')
 };
 
 export type PackMeta = {
@@ -97,16 +98,16 @@ export const DECK_DATA: Record<string, DeckMeta> = {
         thumbnail: require('../assets/images/illustration-cat.png'),
         energyCost: 0, isLocked: false, isPremium: false,
         cards: [
-          { id: '1',  word: '猫',   pinyin: 'māo',    meaning: 'Cat',     partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-cat.png'),     audioUrl: require('../assets/audio/01 CN_Cat.MP3'),     cardColor: '#f6a275' }, // orange-card
-          { id: '2',  word: '狗',   pinyin: 'gǒu',    meaning: 'Dog',     partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-dog.png'),     audioUrl: require('../assets/audio/02 CN_Dog.MP3'),     cardColor: '#fef08a' }, // yellow-card
-          { id: '3',  word: '鸡',   pinyin: 'jī',     meaning: 'Chicken', partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-chicken.png'), audioUrl: require('../assets/audio/03 CN_Chicken.MP3'), cardColor: '#7dd3fc' }, // sky-card
-          { id: '4',  word: '猪',   pinyin: 'zhū',    meaning: 'Pig',     partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-pig.png'),     audioUrl: require('../assets/audio/04 CN_Pig.MP3'),     cardColor: '#f472b6' }, // pink-card
-          { id: '5',  word: '牛',   pinyin: 'niú',    meaning: 'Cow',     partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-cow.png'),     audioUrl: require('../assets/audio/05 CN_Cow.MP3'),     cardColor: '#2dd4bf' }, // teal-card
-          { id: '6',  word: '鸟',   pinyin: 'niǎo',   meaning: 'Bird',    partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-bird.png'),    audioUrl: require('../assets/audio/06 CN_Bird.MP3'),    cardColor: '#ce9c89' }, // brown-card
-          { id: '7',  word: '鱼',   pinyin: 'yú',     meaning: 'Fish',    partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-fish.png'),    audioUrl: require('../assets/audio/07 CN_Fish.MP3'),    cardColor: '#7dd3fc' }, // sky-card
-          { id: '8',  word: '马',   pinyin: 'mǎ',     meaning: 'Horse',   partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-horse.png'),   audioUrl: require('../assets/audio/08 CN_Horse.MP3'),   cardColor: '#ce9c89' }, // brown-card
-          { id: '9',  word: '老鼠', pinyin: 'lǎoshǔ', meaning: 'Mouse',   partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-mouse.png'),   audioUrl: require('../assets/audio/09 CN_Mouse.MP3'),   cardColor: '#262626' }, // black-card
-          { id: '10', word: '老虎', pinyin: 'lǎohǔ',  meaning: 'Tiger',   partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-tiger.png'),   audioUrl: require('../assets/audio/10 CN_Tiger.MP3'),   cardColor: '#312e81' }, // indigo-card
+          { id: '1',  word: '猫',   pinyin: 'māo',    meaning: 'Cat',     partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-cat.png'),     audioUrl: require('../assets/audio/01 CN_Cat.MP3'),     cardColor: '#f6a275', tags: ['Mammals'] },
+          { id: '2',  word: '狗',   pinyin: 'gǒu',    meaning: 'Dog',     partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-dog.png'),     audioUrl: require('../assets/audio/02 CN_Dog.MP3'),     cardColor: '#fef08a', tags: ['Mammals'] },
+          { id: '3',  word: '鸡',   pinyin: 'jī',     meaning: 'Chicken', partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-chicken.png'), audioUrl: require('../assets/audio/03 CN_Chicken.MP3'), cardColor: '#7dd3fc', tags: ['Birds'] },
+          { id: '4',  word: '猪',   pinyin: 'zhū',    meaning: 'Pig',     partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-pig.png'),     audioUrl: require('../assets/audio/04 CN_Pig.MP3'),     cardColor: '#f472b6', tags: ['Mammals'] },
+          { id: '5',  word: '牛',   pinyin: 'niú',    meaning: 'Cow',     partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-cow.png'),     audioUrl: require('../assets/audio/05 CN_Cow.MP3'),     cardColor: '#2dd4bf', tags: ['Mammals'] },
+          { id: '6',  word: '鸟',   pinyin: 'niǎo',   meaning: 'Bird',    partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-bird.png'),    audioUrl: require('../assets/audio/06 CN_Bird.MP3'),    cardColor: '#ce9c89', tags: ['Birds'] },
+          { id: '7',  word: '鱼',   pinyin: 'yú',     meaning: 'Fish',    partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-fish.png'),    audioUrl: require('../assets/audio/07 CN_Fish.MP3'),    cardColor: '#7dd3fc', tags: ['Aquatic'] },
+          { id: '8',  word: '马',   pinyin: 'mǎ',     meaning: 'Horse',   partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-horse.png'),   audioUrl: require('../assets/audio/08 CN_Horse.MP3'),   cardColor: '#ce9c89', tags: ['Mammals'] },
+          { id: '9',  word: '老鼠', pinyin: 'lǎoshǔ', meaning: 'Mouse',   partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-mouse.png'),   audioUrl: require('../assets/audio/09 CN_Mouse.MP3'),   cardColor: '#262626', tags: ['Mammals'] },
+          { id: '10', word: '老虎', pinyin: 'lǎohǔ',  meaning: 'Tiger',   partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-tiger.png'),   audioUrl: require('../assets/audio/10 CN_Tiger.MP3'),   cardColor: '#312e81', tags: ['Mammals'] },
         ],
       },
       {
