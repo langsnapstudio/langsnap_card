@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import Svg, { Circle } from 'react-native-svg';
 import { getReviewSummary } from '@/constants/review-store';
 import type { Card } from '@/constants/mock-packs';
 import { cardTextColor } from '@/constants/mock-packs';
@@ -82,93 +81,58 @@ function Confetti() {
   );
 }
 
-// ── Animated progress ring ─────────────────────────────────────────────────────
-const RING_SIZE     = 160;
-const RADIUS        = 62;
-const STROKE        = 11;
-const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+// ── Animated progress bar ──────────────────────────────────────────────────────
 const ANIM_DURATION = 1200;
 
-// AnimatedCircle — lets us pass Animated interpolated values as SVG props
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-
-function ProgressRing({ remembered, total }: { remembered: number; total: number }) {
-  const ratio = total > 0 ? remembered / total : 0;
-
-  // Single animated value drives both the arc and the counter
-  const animVal = useRef(new Animated.Value(0)).current;
+function ProgressBar({ remembered, total }: { remembered: number; total: number }) {
+  const ratio    = total > 0 ? remembered / total : 0;
+  const animVal  = useRef(new Animated.Value(0)).current;
   const [displayCount, setDisplayCount] = useState(0);
 
-  // Interpolate arc offset: 0 → full circle, ratio → partial fill
-  const strokeDashoffset = animVal.interpolate({
-    inputRange:  [0, Math.max(ratio, 0.001)],
-    outputRange: [CIRCUMFERENCE, CIRCUMFERENCE * (1 - ratio)],
+  const fillWidth = animVal.interpolate({
+    inputRange:  [0, 1],
+    outputRange: ['0%', '100%'],
     extrapolate: 'clamp',
   });
 
   useEffect(() => {
     const listenerId = animVal.addListener(({ value }) => {
-      setDisplayCount(Math.round((value / Math.max(ratio, 0.001)) * remembered));
+      setDisplayCount(Math.round(value * remembered));
     });
-
     Animated.timing(animVal, {
-      toValue:        ratio,
-      duration:       ANIM_DURATION,
-      easing:         Easing.out(Easing.cubic),
-      useNativeDriver: false, // required for SVG props
+      toValue:         ratio,
+      duration:        ANIM_DURATION,
+      easing:          Easing.out(Easing.cubic),
+      useNativeDriver: false,
     }).start(() => {
-      setDisplayCount(remembered); // snap to exact value on complete
+      setDisplayCount(remembered);
       animVal.removeListener(listenerId);
     });
-
     return () => animVal.removeAllListeners();
   }, []);
 
   return (
-    <View style={ring.wrapper}>
-      <Svg width={RING_SIZE} height={RING_SIZE} viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}>
-        {/* Track */}
-        <Circle
-          cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RADIUS}
-          stroke="#E0DBF0"
-          strokeWidth={STROKE}
-          fill="none"
-        />
-        {/* Animated fill */}
-        <AnimatedCircle
-          cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RADIUS}
-          stroke={GREEN}
-          strokeWidth={STROKE}
-          fill="none"
-          strokeDasharray={`${CIRCUMFERENCE} ${CIRCUMFERENCE}`}
-          strokeDashoffset={strokeDashoffset}
-          strokeLinecap="round"
-          rotation="-90"
-          origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
-        />
-      </Svg>
-      {/* Animated counter */}
-      <View style={ring.center}>
-        <View style={ring.scoreRow}>
-          <Text style={ring.scoreNum}>{displayCount}</Text>
-          <Text style={ring.scoreDenom}>/{total}</Text>
-        </View>
-        <Text style={ring.label}>REMEMBER</Text>
+    <View style={bar.wrapper}>
+      <View style={bar.scoreRow}>
+        <Text style={bar.scoreNum}>{displayCount}</Text>
+        <Text style={bar.scoreDenom}>/{total}</Text>
+      </View>
+      <Text style={bar.label}>REMEMBER</Text>
+      <View style={bar.track}>
+        <Animated.View style={[bar.fill, { width: fillWidth }]} />
       </View>
     </View>
   );
 }
 
-const ring = StyleSheet.create({
-  wrapper: {
-    width: RING_SIZE, height: RING_SIZE,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  center:    { position: 'absolute', alignItems: 'center' },
-  scoreRow:  { flexDirection: 'row', alignItems: 'baseline' },
-  scoreNum:  { fontSize: 36, fontFamily: 'Volte-Semibold', color: BRAND_PURPLE },
-  scoreDenom:{ fontSize: 20, fontFamily: 'Volte-Semibold', color: TEXT_MUTED },
-  label:     { fontSize: 10, fontFamily: 'Volte-Semibold', color: TEXT_MUTED, letterSpacing: 1, marginTop: 2 },
+const bar = StyleSheet.create({
+  wrapper:   { paddingHorizontal: 28, paddingTop: 8, paddingBottom: 32, alignItems: 'center' },
+  scoreRow:  { flexDirection: 'row', alignItems: 'baseline', marginBottom: 4 },
+  scoreNum:  { fontSize: 52, fontFamily: 'Volte-Semibold', color: WHITE },
+  scoreDenom:{ fontSize: 26, fontFamily: 'Volte-Semibold', color: 'rgba(255,255,255,0.55)' },
+  label:     { fontSize: 13, fontFamily: 'Volte-Semibold', color: 'rgba(255,255,255,0.55)', letterSpacing: 1.2, marginBottom: 20 },
+  track:     { height: 10, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.25)', overflow: 'hidden', alignSelf: 'stretch' },
+  fill:      { height: 10, borderRadius: 6, backgroundColor: GREEN },
 });
 
 // ── Card row ──────────────────────────────────────────────────────────────────
@@ -208,12 +172,10 @@ export default function ReviewSummaryScreen() {
     <View style={styles.root}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
 
-        {/* Header */}
-        <Text style={styles.title}>How you did this time</Text>
-
-        {/* Progress ring — centered */}
-        <View style={styles.ringRow}>
-          <ProgressRing remembered={remembered.length} total={total} />
+        {/* Purple header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>How you did this time</Text>
+          <ProgressBar remembered={remembered.length} total={total} />
         </View>
 
         {/* Card list */}
@@ -265,19 +227,17 @@ const styles = StyleSheet.create({
   root:    { flex: 1, backgroundColor: WHITE, overflow: 'hidden' },
   safeArea:{ flex: 1 },
 
+  header: {
+    backgroundColor: BRAND_PURPLE,
+  },
   title: {
     fontSize: 22,
     fontFamily: 'Volte-Semibold',
-    color: BRAND_PURPLE,
+    color: WHITE,
     textAlign: 'center',
-    paddingTop: 24,
+    paddingTop: 28,
     paddingHorizontal: 24,
-    marginBottom: 4,
-  },
-
-  ringRow: {
-    alignItems: 'center',
-    paddingVertical: 20,
+    marginBottom: 16,
   },
 
   scroll:        { flex: 1, backgroundColor: '#F8F5EF' },
@@ -287,21 +247,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#F0EDE8',
     paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingTop: 20,
+    paddingBottom: 6,
   },
-  sectionTitle: { fontSize: 13, fontFamily: 'Volte-Semibold', letterSpacing: 1.2 },
-  sectionCount: { fontSize: 13, fontFamily: 'Volte-Semibold' },
+  sectionTitle: { fontSize: 12, fontFamily: 'Volte-Semibold', letterSpacing: 1.4 },
+  sectionCount: { fontSize: 12, fontFamily: 'Volte-Semibold' },
 
   cardRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 14,
-    backgroundColor: WHITE,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0EDE8',
+    paddingVertical: 8,
     gap: 16,
   },
   cardThumb:     { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
