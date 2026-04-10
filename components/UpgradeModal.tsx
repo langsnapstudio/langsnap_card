@@ -31,10 +31,9 @@ const PLANS = [
 
 // ── Benefits ──────────────────────────────────────────────────────────────────
 const BENEFITS = [
-  { icon: '🎨', text: '500+ studio-illustrated flashcards' },
-  { icon: '🔓', text: 'Unlock all levels (Lv. 3 and above)' },
-  { icon: '🧠', text: 'More ways to remember vocabulary' },
-  { icon: '📝', text: 'Exclusive mock test content' },
+  { icon: '🎨', text: '500+ illustrated flashcards, all levels unlocked' },
+  { icon: '🎮', text: 'More fun ways to practice — games, quizzes & more' },
+  { icon: '📝', text: 'Exclusive decks and content, just for Premium' },
 ];
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -85,10 +84,6 @@ export default function UpgradeModal({ visible, onClose, onSubscribe }: Props) {
       <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
         <View style={styles.handle} />
 
-        {/* Close button */}
-        <TouchableOpacity style={styles.closeBtn} onPress={onClose} hitSlop={12}>
-          <Ionicons name="close" size={22} color={TEXT_MUTED} />
-        </TouchableOpacity>
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
@@ -99,7 +94,7 @@ export default function UpgradeModal({ visible, onClose, onSubscribe }: Props) {
             </View>
             <Text style={styles.heroTitle}>Go Premium</Text>
             <Text style={styles.heroSubtitle}>
-              Unlock everything and build your vocabulary faster
+              Full access to every deck, pack, and level
             </Text>
           </View>
 
@@ -109,7 +104,6 @@ export default function UpgradeModal({ visible, onClose, onSubscribe }: Props) {
               <View key={i} style={styles.benefitRow}>
                 <Text style={styles.benefitIcon}>{b.icon}</Text>
                 <Text style={styles.benefitText}>{b.text}</Text>
-                <Ionicons name="checkmark-circle" size={18} color={BRAND_PURPLE} />
               </View>
             ))}
           </View>
@@ -121,34 +115,27 @@ export default function UpgradeModal({ visible, onClose, onSubscribe }: Props) {
               return (
                 <TouchableOpacity
                   key={plan.id}
-                  style={[styles.planCard, selected && styles.planCardSelected, plan.highlight && !selected && styles.planCardHighlight]}
+                  style={[styles.planCard, selected && styles.planCardSelected]}
                   activeOpacity={0.8}
                   onPress={() => setSelectedPlan(plan.id)}
                 >
-                  {/* Badge */}
-                  {plan.badge && (
+                  {plan.badge ? (
                     <View style={[styles.planBadge, selected && styles.planBadgeSelected]}>
                       <Text style={[styles.planBadgeText, selected && styles.planBadgeTextSelected]}>
                         {plan.badge}
                       </Text>
                     </View>
+                  ) : (
+                    <View style={styles.planBadgePlaceholder} />
                   )}
-
                   <View style={styles.planContent}>
-                    <View style={styles.planLeft}>
-                      <View style={[styles.radio, selected && styles.radioSelected]}>
-                        {selected && <View style={styles.radioDot} />}
-                      </View>
-                      <View>
-                        <Text style={[styles.planLabel, selected && styles.planLabelSelected]}>
-                          {plan.label}
-                        </Text>
-                        <Text style={styles.planPerMonth}>{plan.perMonth}</Text>
-                      </View>
-                    </View>
+                    <Text style={[styles.planLabel, selected && styles.planLabelSelected]}>
+                      {plan.label}
+                    </Text>
                     <Text style={[styles.planPrice, selected && styles.planPriceSelected]}>
                       {plan.price}
                     </Text>
+                    <Text style={styles.planPerMonth}>{plan.perMonth}</Text>
                   </View>
                 </TouchableOpacity>
               );
@@ -169,10 +156,15 @@ export default function UpgradeModal({ visible, onClose, onSubscribe }: Props) {
             <Text style={styles.restoreText}>Restore purchase</Text>
           </TouchableOpacity>
 
-          <Text style={styles.legalText}>
-            Subscription renews automatically. Cancel anytime in your App Store settings.
-            By subscribing you agree to our Terms of Use and Privacy Policy.
-          </Text>
+          <View style={styles.legalRow}>
+            <TouchableOpacity activeOpacity={0.7}>
+              <Text style={styles.legalLink}>Terms of Service</Text>
+            </TouchableOpacity>
+            <Text style={styles.legalDot}>•</Text>
+            <TouchableOpacity activeOpacity={0.7}>
+              <Text style={styles.legalLink}>Privacy Policy</Text>
+            </TouchableOpacity>
+          </View>
 
         </ScrollView>
       </Animated.View>
@@ -197,9 +189,6 @@ const styles = StyleSheet.create({
     width: 40, height: 4, borderRadius: 2,
     backgroundColor: BORDER, alignSelf: 'center', marginBottom: 8,
   },
-  closeBtn: {
-    position: 'absolute', top: 16, right: 20, zIndex: 10,
-  },
   scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
 
   // Hero
@@ -216,40 +205,35 @@ const styles = StyleSheet.create({
   // Benefits
   benefitsCard: {
     backgroundColor: BG_CREAM, borderRadius: 16,
-    padding: 16, marginBottom: 20, gap: 12,
+    padding: 16, marginBottom: 20, gap: 18,
   },
   benefitRow:  { flexDirection: 'row', alignItems: 'center', gap: 12 },
   benefitIcon: { fontSize: 20, width: 28, textAlign: 'center' },
   benefitText: { flex: 1, fontSize: 14, fontFamily: 'Volte-Medium', color: TEXT_DARK },
 
   // Plans
-  plansWrap: { gap: 10, marginBottom: 20 },
+  plansWrap: { flexDirection: 'row', gap: 10, marginBottom: 20, alignItems: 'stretch' },
   planCard: {
-    borderRadius: 14, borderWidth: 1.5, borderColor: BORDER,
+    flex: 1, borderRadius: 14, borderWidth: 1.5, borderColor: BORDER,
     backgroundColor: WHITE, overflow: 'hidden',
   },
-  planCardSelected:  { borderColor: BRAND_PURPLE, backgroundColor: PURPLE_LIGHT },
-  planCardHighlight: { borderColor: BRAND_PURPLE },
+  planCardSelected: { borderColor: BRAND_PURPLE, backgroundColor: PURPLE_LIGHT },
 
   planBadge: {
-    backgroundColor: PURPLE_LIGHT,
-    paddingHorizontal: 12, paddingVertical: 4,
-    alignSelf: 'flex-start',
+    backgroundColor: BRAND_PURPLE,
+    paddingHorizontal: 8, paddingVertical: 4,
+    alignItems: 'center',
   },
+  planBadgePlaceholder:  { height: 24 },
   planBadgeSelected:     { backgroundColor: BRAND_PURPLE },
-  planBadgeText:         { fontSize: 11, fontFamily: 'Volte-Semibold', color: BRAND_PURPLE },
+  planBadgeText:         { fontSize: 11, fontFamily: 'Volte-Semibold', color: WHITE },
   planBadgeTextSelected: { color: WHITE },
 
-  planContent:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14 },
-  planLeft:     { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  radio:        { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: BORDER, alignItems: 'center', justifyContent: 'center' },
-  radioSelected:{ borderColor: BRAND_PURPLE },
-  radioDot:     { width: 10, height: 10, borderRadius: 5, backgroundColor: BRAND_PURPLE },
-
-  planLabel:         { fontSize: 15, fontFamily: 'Volte-Semibold', color: TEXT_DARK },
+  planContent:  { padding: 12, paddingVertical: 16, alignItems: 'flex-start' },
+  planLabel:         { fontSize: 14, fontFamily: 'Volte-Semibold', color: TEXT_DARK },
   planLabelSelected: { color: BRAND_PURPLE },
-  planPerMonth:      { fontSize: 12, fontFamily: 'Volte-Medium', color: TEXT_MUTED, marginTop: 1 },
-  planPrice:         { fontSize: 16, fontFamily: 'Volte-Semibold', color: TEXT_DARK },
+  planPerMonth:      { fontSize: 11, fontFamily: 'Volte-Medium', color: TEXT_MUTED, marginTop: 2 },
+  planPrice:         { fontSize: 16, fontFamily: 'Volte-Semibold', color: TEXT_DARK, marginTop: 16 },
   planPriceSelected: { color: BRAND_PURPLE },
 
   // Subscribe button
@@ -262,5 +246,7 @@ const styles = StyleSheet.create({
   // Restore + legal
   restoreBtn:  { alignItems: 'center', paddingVertical: 8, marginBottom: 12 },
   restoreText: { fontSize: 14, fontFamily: 'Volte-Medium', color: TEXT_MUTED },
-  legalText:   { fontSize: 11, fontFamily: 'Volte', color: TEXT_MUTED, textAlign: 'center', lineHeight: 17 },
+  legalRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 8 },
+  legalLink:   { fontSize: 13, fontFamily: 'Volte-Medium', color: BRAND_PURPLE },
+  legalDot:    { fontSize: 13, color: TEXT_MUTED },
 });

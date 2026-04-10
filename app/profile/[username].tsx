@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   Alert,
   Image,
@@ -59,19 +59,9 @@ function formatJoinDate(iso: string) {
   return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
 
-// ── Stat tile ──────────────────────────────────────────────────────────────────
-function StatTile({ value, label }: { value: string | number; label: string }) {
-  return (
-    <View style={styles.statTile}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
 // ── Screen ─────────────────────────────────────────────────────────────────────
 export default function PublicProfileScreen() {
-  const router   = useRouter();
+  const router = useRouter();
   const { username } = useLocalSearchParams<{ username: string }>();
 
   const user = getUserByUsername(username ?? '');
@@ -92,16 +82,13 @@ export default function PublicProfileScreen() {
     );
   }
 
-  const avatarSrc     = AVATAR_IMAGES[user.avatarId];
-  const following     = isFollowing(user.id);
-  const mutuals       = getMutualFollowers(user.id);
+  const avatarSrc = AVATAR_IMAGES[user.avatarId];
+  const following = isFollowing(user.id);
+  const mutuals   = getMutualFollowers(user.id);
 
   function handleFollowToggle() {
-    if (following) {
-      unfollowUser(user!.id);
-    } else {
-      followUser(user!.id);
-    }
+    if (following) unfollowUser(user!.id);
+    else followUser(user!.id);
     forceUpdate(n => n + 1);
   }
 
@@ -117,49 +104,66 @@ export default function PublicProfileScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.root} edges={['bottom']}>
 
-      {/* ── Nav bar ──────────────────────────────────────────────────────── */}
-      <View style={styles.navBar}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={24} color={TEXT_DARK} />
-        </TouchableOpacity>
-        <Text style={styles.navTitle}>@{user.username}</Text>
-        <TouchableOpacity onPress={handleReport} hitSlop={12} style={styles.reportBtn}>
-          <Ionicons name="ellipsis-horizontal" size={22} color={TEXT_MUTED} />
-        </TouchableOpacity>
-      </View>
+      {/* ── Purple section (nav + profile + actions) ─────────────────────── */}
+      <SafeAreaView style={styles.purpleSection} edges={['top']}>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        {/* Nav bar */}
+        <View style={styles.navBar}>
+          <TouchableOpacity onPress={() => router.back()} hitSlop={12} style={styles.navBtn}>
+            <Ionicons name="chevron-back" size={24} color={WHITE} />
+          </TouchableOpacity>
+          <Text style={styles.navTitle}>@{user.username}</Text>
+          <TouchableOpacity onPress={handleReport} hitSlop={12} style={styles.navBtn}>
+            <Ionicons name="ellipsis-horizontal" size={22} color={WHITE} />
+          </TouchableOpacity>
+        </View>
 
-        {/* ── Purple header ─────────────────────────────────────────────── */}
-        <View style={styles.header}>
-          <View style={styles.avatarWrap}>
+        {/* Profile info: avatar left, details right */}
+        <View style={styles.headerTop}>
+          <View style={{ width: 88, height: 88, borderRadius: 44, overflow: 'hidden', backgroundColor: PURPLE_LIGHT }}>
             {avatarSrc
-              ? <Image source={avatarSrc} style={styles.avatarImg} resizeMode="cover" />
-              : <View style={[styles.avatarImg, { backgroundColor: PURPLE_LIGHT }]} />
+              ? <Image source={avatarSrc} style={{ width: 88, height: 88 }} resizeMode="cover" />
+              : <View style={{ width: 88, height: 88, backgroundColor: PURPLE_LIGHT }} />
             }
           </View>
 
-          <Text style={styles.displayName}>{user.displayName}</Text>
-          <Text style={styles.usernameText}>@{user.username}</Text>
-          <Text style={styles.joinDate}>Joined {formatJoinDate(user.joinedDate)}</Text>
+          <View style={styles.headerInfo}>
+            <Text style={styles.displayName}>{user.displayName}</Text>
+            <Text style={styles.joinDate}>Joined {formatJoinDate(user.joinedDate)}</Text>
 
-          <View style={styles.langPill}>
-            <Text style={styles.langPillText}>{languageLabel(user.language)}</Text>
+            {/* Stats: Courses | Followers | Following */}
+            <View style={styles.statsRow}>
+              <TouchableOpacity
+                style={styles.statTile}
+                activeOpacity={0.8}
+                onPress={() => router.push({ pathname: '/profile/courses', params: { username: user.username } })}
+              >
+                <Text style={styles.statValue}>{user.coursesCount}</Text>
+                <Text style={styles.statLabel}>Courses</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.statTile}
+                activeOpacity={0.8}
+                onPress={() => router.push({ pathname: `/profile/friends`, params: { username: user.username, tab: 'followers' } })}
+              >
+                <Text style={styles.statValue}>{user.followersCount}</Text>
+                <Text style={styles.statLabel}>Followers</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.statTile}
+                activeOpacity={0.8}
+                onPress={() => router.push({ pathname: `/profile/friends`, params: { username: user.username, tab: 'following' } })}
+              >
+                <Text style={styles.statValue}>{user.followingCount}</Text>
+                <Text style={styles.statLabel}>Following</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
-        {/* ── Stats row ─────────────────────────────────────────────────── */}
-        <View style={styles.statsRow}>
-          <StatTile value={user.streak}       label="Day streak 🔥" />
-          <View style={styles.statDivider} />
-          <StatTile value={user.wordsLearned} label="Words learned" />
-          <View style={styles.statDivider} />
-          <StatTile value="—"                 label="Following" />
-        </View>
-
-        {/* ── Mutual followers ──────────────────────────────────────────── */}
+        {/* Mutual followers */}
         {mutuals.length > 0 && (
           <View style={styles.mutualRow}>
             <View style={styles.mutualAvatars}>
@@ -183,7 +187,7 @@ export default function PublicProfileScreen() {
           </View>
         )}
 
-        {/* ── Follow / Unfollow button ──────────────────────────────────── */}
+        {/* Follow + QR buttons */}
         <View style={styles.actionRow}>
           <TouchableOpacity
             style={[styles.followBtn, following && styles.followingBtn]}
@@ -194,13 +198,17 @@ export default function PublicProfileScreen() {
               {following ? 'Following' : 'Follow'}
             </Text>
           </TouchableOpacity>
-
           <TouchableOpacity style={styles.qrBtn} activeOpacity={0.8} onPress={() => setQrVisible(true)}>
-            <Ionicons name="qr-code-outline" size={20} color={BRAND_PURPLE} />
+            <Ionicons name="qr-code-outline" size={20} color={WHITE} />
           </TouchableOpacity>
         </View>
 
-        {/* ── Achievements (Phase 2 placeholder) ───────────────────────── */}
+      </SafeAreaView>
+
+      {/* ── Scrollable content below ────────────────────────────────────── */}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+
+        {/* Achievements (Phase 2 placeholder) */}
         <Text style={styles.sectionHeader}>Achievements</Text>
         <View style={styles.card}>
           <View style={styles.comingSoonWrap}>
@@ -212,7 +220,7 @@ export default function PublicProfileScreen() {
           </View>
         </View>
 
-        {/* ── Report ────────────────────────────────────────────────────── */}
+        {/* Report */}
         <TouchableOpacity style={styles.reportRow} onPress={handleReport} activeOpacity={0.7}>
           <Ionicons name="flag-outline" size={16} color={RED} />
           <Text style={styles.reportText}>Report @{user.username}</Text>
@@ -232,82 +240,67 @@ export default function PublicProfileScreen() {
 
 // ── Styles ─────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root:          { flex: 1, backgroundColor: BG_CREAM },
-  scrollContent: { paddingBottom: 16 },
+  root: { flex: 1, backgroundColor: BG_CREAM },
 
-  // Nav
-  navBar: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 12,
-    backgroundColor: WHITE,
-  },
-  backBtn:   { width: 32 },
-  reportBtn: { width: 32, alignItems: 'flex-end' },
-  navTitle:  { flex: 1, textAlign: 'center', fontSize: 15, fontFamily: 'Volte-Semibold', color: TEXT_DARK },
-
-  // Header
-  header: {
+  // Purple section
+  purpleSection: {
     backgroundColor: BRAND_PURPLE,
-    alignItems: 'center',
-    paddingTop: 24, paddingBottom: 28,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    gap: 16,
   },
-  avatarWrap: {
-    width: 80, height: 80, borderRadius: 40,
-    overflow: 'hidden', marginBottom: 12,
-    backgroundColor: PURPLE_LIGHT,
-    borderWidth: 3, borderColor: 'rgba(255,255,255,0.3)',
-  },
-  avatarImg:    { width: 80, height: 80 },
-  displayName:  { fontSize: 20, fontFamily: 'Volte-Semibold', color: WHITE, marginBottom: 2 },
-  usernameText: { fontSize: 14, fontFamily: 'Volte-Medium', color: 'rgba(255,255,255,0.65)', marginBottom: 4 },
-  joinDate:     { fontSize: 12, fontFamily: 'Volte-Medium', color: 'rgba(255,255,255,0.5)', marginBottom: 12 },
+
+  // Nav bar (inside purple)
+  navBar:  { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
+  navBtn:  { width: 32 },
+  navTitle:{ flex: 1, textAlign: 'center', fontSize: 15, fontFamily: 'Volte-Semibold', color: WHITE },
+
+  // Header top row
+  headerTop:  { flexDirection: 'row', alignItems: 'center', gap: 20 },
+  headerInfo:  { flex: 1, gap: 2 },
+  displayName: { fontSize: 20, fontFamily: 'Volte-Semibold', color: WHITE },
+  joinDate:    { fontSize: 11, fontFamily: 'Volte-Medium', color: 'rgba(255,255,255,0.5)', marginBottom: 16 },
+
+  // Stats
+  statsRow:   { flexDirection: 'row', alignItems: 'center', gap: 24 },
+  statTile:   { alignItems: 'flex-start' },
+  statValue:  { fontSize: 18, fontFamily: 'Volte-Semibold', color: WHITE },
+  statLabel:  { fontSize: 14, fontFamily: 'Volte-Medium', color: 'rgba(255,255,255,0.65)', marginTop: 1 },
+
+  // Language pill
   langPill: {
     backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6,
+    borderRadius: 20, paddingHorizontal: 14,
+    height: 36, justifyContent: 'center',
+    alignSelf: 'flex-start',
   },
   langPillText: { fontSize: 13, fontFamily: 'Volte-Medium', color: WHITE },
 
-  // Stats
-  statsRow: {
-    flexDirection: 'row',
-    backgroundColor: WHITE,
-    marginHorizontal: 16, marginTop: 16,
-    borderRadius: 16, paddingVertical: 20,
-  },
-  statTile:    { flex: 1, alignItems: 'center', gap: 4 },
-  statValue:   { fontSize: 20, fontFamily: 'Volte-Semibold', color: TEXT_DARK },
-  statLabel:   { fontSize: 11, fontFamily: 'Volte-Medium',   color: TEXT_MUTED },
-  statDivider: { width: 1, backgroundColor: BORDER, marginVertical: 8 },
-
   // Mutuals
-  mutualRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 20, paddingTop: 14,
-  },
+  mutualRow:       { flexDirection: 'row', alignItems: 'center', gap: 8 },
   mutualAvatars:   { flexDirection: 'row' },
   mutualAvatarWrap:{ width: 22, height: 22, borderRadius: 11, overflow: 'hidden', borderWidth: 1.5, borderColor: WHITE, marginRight: -6 },
   mutualAvatar:    { width: 22, height: 22 },
-  mutualText:      { fontSize: 13, fontFamily: 'Volte-Medium', color: TEXT_MUTED, flex: 1 },
-  mutualName:      { fontFamily: 'Volte-Semibold', color: TEXT_DARK },
+  mutualText:      { fontSize: 13, fontFamily: 'Volte-Medium', color: 'rgba(255,255,255,0.75)', flex: 1 },
+  mutualName:      { fontFamily: 'Volte-Semibold', color: WHITE },
 
   // Action row
-  actionRow: {
-    flexDirection: 'row', gap: 10,
-    paddingHorizontal: 16, paddingTop: 16,
-  },
+  actionRow: { flexDirection: 'row', gap: 10 },
   followBtn: {
-    flex: 1, backgroundColor: BRAND_PURPLE,
+    flex: 1, backgroundColor: WHITE,
     borderRadius: 14, paddingVertical: 14, alignItems: 'center',
   },
-  followingBtn:     { backgroundColor: WHITE, borderWidth: 1.5, borderColor: BORDER },
-  followBtnText:    { fontSize: 15, fontFamily: 'Volte-Semibold', color: WHITE },
-  followingBtnText: { color: TEXT_MUTED },
+  followingBtn:     { backgroundColor: 'rgba(255,255,255,0.2)', borderWidth: 0 },
+  followBtnText:    { fontSize: 15, fontFamily: 'Volte-Semibold', color: BRAND_PURPLE },
+  followingBtnText: { color: WHITE },
   qrBtn: {
     width: 50, borderRadius: 14,
-    backgroundColor: WHITE, borderWidth: 1.5, borderColor: BORDER,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center', justifyContent: 'center',
   },
+
+  // Scroll content
+  scrollContent: { paddingBottom: 16 },
 
   // Section header
   sectionHeader: {
@@ -326,7 +319,7 @@ const styles = StyleSheet.create({
   comingSoonWrap:     { alignItems: 'center', paddingVertical: 16, gap: 6 },
   comingSoonIcon:     { fontSize: 32, marginBottom: 4 },
   comingSoonTitle:    { fontSize: 15, fontFamily: 'Volte-Semibold', color: TEXT_DARK },
-  comingSoonSubtitle: { fontSize: 13, fontFamily: 'Volte-Medium',   color: TEXT_MUTED, textAlign: 'center' },
+  comingSoonSubtitle: { fontSize: 13, fontFamily: 'Volte-Medium', color: TEXT_MUTED, textAlign: 'center' },
 
   // Report
   reportRow: {
@@ -336,9 +329,9 @@ const styles = StyleSheet.create({
   reportText: { fontSize: 14, fontFamily: 'Volte-Medium', color: RED },
 
   // Not found
-  notFound:        { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  notFoundIcon:    { fontSize: 48 },
-  notFoundTitle:   { fontSize: 18, fontFamily: 'Volte-Semibold', color: TEXT_DARK },
-  backBtnAlt:      { backgroundColor: BRAND_PURPLE, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 28 },
-  backBtnAltText:  { fontSize: 15, fontFamily: 'Volte-Semibold', color: WHITE },
+  notFound:       { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  notFoundIcon:   { fontSize: 48 },
+  notFoundTitle:  { fontSize: 18, fontFamily: 'Volte-Semibold', color: TEXT_DARK },
+  backBtnAlt:     { backgroundColor: BRAND_PURPLE, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 28 },
+  backBtnAltText: { fontSize: 15, fontFamily: 'Volte-Semibold', color: WHITE },
 });

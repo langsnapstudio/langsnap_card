@@ -1,5 +1,6 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
+  Animated,
   Clipboard,
   Image,
   ScrollView,
@@ -51,6 +52,44 @@ const AVATAR_IMAGES: Record<string, any> = {
   hotcocoa:    require('@/assets/images/avatar-hotcocoa.png'),
   beer:        require('@/assets/images/avatar-beer.png'),
 };
+
+type AvatarItem = { id: string; fallbackBg: string };
+
+const AVATARS: AvatarItem[] = [
+  { id: 'dog',         fallbackBg: '#F5C842' },
+  { id: 'cat',         fallbackBg: '#E07A45' },
+  { id: 'sheep',       fallbackBg: '#606060' },
+  { id: 'elephant',    fallbackBg: '#B0CCDF' },
+  { id: 'rabbit',      fallbackBg: '#E8E8E4' },
+  { id: 'watermelon',  fallbackBg: '#E05C5C' },
+  { id: 'dragonfruit', fallbackBg: '#9BB5E8' },
+  { id: 'pineapple',   fallbackBg: '#4CAF50' },
+  { id: 'corn',        fallbackBg: '#2E9E7A' },
+  { id: 'hamburger',   fallbackBg: '#E53935' },
+  { id: 'sushi',       fallbackBg: '#424242' },
+  { id: 'pizza',       fallbackBg: '#26C6DA' },
+  { id: 'streamedbun', fallbackBg: '#D4A574' },
+  { id: 'bubbletea',   fallbackBg: '#8D6E63' },
+  { id: 'hotcocoa',    fallbackBg: '#6D4C41' },
+  { id: 'beer',        fallbackBg: '#F5A623' },
+];
+
+function AvatarCircle({ avatarId, size = 88 }: { avatarId: string; size?: number }) {
+  const image = AVATAR_IMAGES[avatarId];
+  const fallback = AVATARS.find(a => a.id === avatarId)?.fallbackBg ?? PURPLE_LIGHT;
+  return (
+    <View style={{
+      width: size, height: size, borderRadius: size / 2,
+      overflow: 'hidden', backgroundColor: image ? 'transparent' : fallback,
+      alignItems: 'center', justifyContent: 'center',
+    }}>
+      {image
+        ? <Image source={image} style={{ width: size, height: size }} resizeMode="cover" />
+        : <View style={{ width: size * 0.4, height: size * 0.4, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.35)' }} />
+      }
+    </View>
+  );
+}
 
 // ── Mock data (replace with real store later) ──────────────────────────────────
 const MOCK_STATS = {
@@ -171,13 +210,48 @@ function FeatRow({ feat, onClaim }: { feat: Feat; onClaim: (id: string) => void 
   );
 }
 
+function PulseDot() {
+  const scale = useRef(new Animated.Value(1)).current;
+  const opacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(scale,   { toValue: 1.6, duration: 700, useNativeDriver: true }),
+          Animated.timing(opacity, { toValue: 0,   duration: 700, useNativeDriver: true }),
+        ]),
+        Animated.parallel([
+          Animated.timing(scale,   { toValue: 1, duration: 0, useNativeDriver: true }),
+          Animated.timing(opacity, { toValue: 1, duration: 0, useNativeDriver: true }),
+        ]),
+        Animated.delay(400),
+      ])
+    ).start();
+  }, []);
+
+  return (
+    <View style={{ width: 10, height: 10, alignItems: 'center', justifyContent: 'center' }}>
+      {/* Ripple ring */}
+      <Animated.View style={{
+        position: 'absolute',
+        width: 10, height: 10, borderRadius: 5,
+        backgroundColor: BRAND_PURPLE,
+        transform: [{ scale }],
+        opacity,
+      }} />
+      {/* Solid core */}
+      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: BRAND_PURPLE }} />
+    </View>
+  );
+}
+
 // ── Screen ─────────────────────────────────────────────────────────────────────
 export default function ProfileScreen() {
-  const { profile, signOut } = useAuth();
+  const { profile, user, signOut, refreshProfile } = useAuth();
   const router = useRouter();
 
-  const avatarId    = profile?.avatar_id ?? 'dog';
-  const avatarImage = AVATAR_IMAGES[avatarId];
+  const avatarId = profile?.avatar_id ?? 'dog';
 
   const [feats,      setFeats]      = useState<Feat[]>(MOCK_FEATS);
   const [reminder,   setReminder]   = useState(false);
@@ -207,68 +281,67 @@ export default function ProfileScreen() {
   const isPremium = false; // replace with real subscription check
 
   return (
-    <SafeAreaView style={styles.root} edges={['top']}>
+    <SafeAreaView style={styles.root} edges={[]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
         {/* ── Purple header ──────────────────────────────────────────────── */}
-        <View style={styles.header}>
-          <View style={styles.avatarWrap}>
-            {avatarImage
-              ? <Image source={avatarImage} style={styles.avatarImg} resizeMode="cover" />
-              : <View style={styles.avatarFallback} />
-            }
-          </View>
-          <Text style={styles.name}>{profile?.display_name ?? '—'}</Text>
-          <Text style={styles.username}>@{profile?.username ?? '—'}</Text>
+        <SafeAreaView style={styles.header} edges={['top']}>
 
-          {/* Following / Followers */}
-          <View style={styles.socialRow}>
-            <TouchableOpacity
-              style={styles.socialTile}
-              onPress={() => router.push({ pathname: '/profile/friends', params: { tab: 'following' } })}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.socialCount}>{followingCount}</Text>
-              <Text style={styles.socialLabel}>Following</Text>
-            </TouchableOpacity>
-            <View style={styles.socialDivider} />
-            <TouchableOpacity
-              style={styles.socialTile}
-              onPress={() => router.push({ pathname: '/profile/friends', params: { tab: 'followers' } })}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.socialCount}>{followersCount}</Text>
-              <Text style={styles.socialLabel}>Followers</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Language pill + share link */}
-          <View style={styles.headerActions}>
-            <View style={styles.langPill}>
-              <Text style={styles.langPillText}>
-                {profile?.target_language === 'taiwan'
-                  ? '🇹🇼 Mandarin Chinese'
-                  : '🇨🇳 Mandarin Chinese'}
-              </Text>
+          {/* Top row: avatar left, info right */}
+          <View style={styles.headerTop}>
+            <View style={styles.avatarWrap}>
+              <AvatarCircle avatarId={avatarId} size={88} />
             </View>
+
+            {/* Right: name + username + following/followers */}
+            <View style={styles.headerInfo}>
+              <Text style={styles.name}>{profile?.display_name ?? '—'}</Text>
+              <Text style={styles.username}>@{profile?.username ?? '—'}</Text>
+              <View style={styles.socialRow}>
+                <TouchableOpacity
+                  style={styles.socialTile}
+                  onPress={() => router.push('/profile/courses')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.socialCount}>1</Text>
+                  <Text style={styles.socialLabel}>Courses</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.socialTile}
+                  onPress={() => router.push({ pathname: '/profile/friends', params: { tab: 'followers' } })}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.socialCount}>{followersCount}</Text>
+                  <Text style={styles.socialLabel}>Followers</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.socialTile}
+                  onPress={() => router.push({ pathname: '/profile/friends', params: { tab: 'following' } })}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.socialCount}>{followingCount}</Text>
+                  <Text style={styles.socialLabel}>Following</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          {/* Bottom row: edit profile + share profile */}
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.editProfileBtn} onPress={() => router.push('/profile/edit')} activeOpacity={0.8}>
+              <Ionicons name="pencil-outline" size={14} color={WHITE} />
+              <Text style={styles.editProfileText}>Edit profile</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.shareLinkBtn} onPress={() => setQrVisible(true)} activeOpacity={0.8}>
               <Ionicons name="qr-code-outline" size={15} color={WHITE} />
               <Text style={styles.shareLinkText}>Share profile</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </SafeAreaView>
 
-        {/* ── Stats ─────────────────────────────────────────────────────── */}
-        <View style={styles.statsRow}>
-          <StatTile value={stats.streak}        label="Day streak"    icon="🔥" />
-          <View style={styles.statDivider} />
-          <StatTile value={stats.wordsLearned}  label="Words learned" icon="📖" />
-          <View style={styles.statDivider} />
-          <StatTile value={stats.cardsReviewed} label="Cards reviewed" icon="🃏" />
-        </View>
 
         {/* ── Streak card ───────────────────────────────────────────────── */}
-        <View style={styles.card}>
+        <View style={[styles.card, { marginTop: 10 }]}>
           <View style={styles.streakHeader}>
             <View>
               <Text style={styles.streakCount}>{stats.streak} day streak 🔥</Text>
@@ -310,7 +383,7 @@ export default function ProfileScreen() {
         )}
 
         {isPremium && (
-          <View style={[styles.card, styles.premiumCard]}>
+          <View style={[styles.card, styles.premiumCard, { marginTop: 16 }]}>
             <Text style={styles.premiumIcon}>👑</Text>
             <View>
               <Text style={styles.premiumTitle}>Premium</Text>
@@ -320,29 +393,33 @@ export default function ProfileScreen() {
         )}
 
         {/* ── Challenges (Feats) ────────────────────────────────────────── */}
-        <SectionHeader title="Challenges" />
-        <TouchableOpacity
-          style={styles.challengesCard}
-          activeOpacity={0.8}
-          onPress={() => router.push('/profile/challenges')}
-        >
-          <View style={styles.challengesLeft}>
-            <Text style={styles.challengesIcon}>🏆</Text>
-            <View>
-              <Text style={styles.challengesTitle}>View all challenges</Text>
-              <Text style={styles.challengesSub}>
-                {feats.filter(f => f.claimed).length}/{feats.length} completed
-                {feats.filter(f => f.progress >= f.goal && !f.claimed).length > 0
-                  ? ` · ${feats.filter(f => f.progress >= f.goal && !f.claimed).length} ready to claim ⚡`
-                  : ''}
-              </Text>
-            </View>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color="#9097A3" />
-        </TouchableOpacity>
+        {(() => {
+          const claimable = feats.filter(f => f.progress >= f.goal && !f.claimed).length;
+          return (
+            <TouchableOpacity
+              style={[styles.challengesCard, { marginTop: 10 }]}
+              activeOpacity={0.8}
+              onPress={() => router.push('/profile/challenges')}
+            >
+              <View style={styles.challengesLeft}>
+                <Text style={styles.challengesIcon}>🏆</Text>
+                <View>
+                  <Text style={styles.challengesTitle}>Challenges</Text>
+                  <Text style={styles.challengesSub}>
+                    {claimable > 0 ? `${claimable} ready to claim ⚡` : 'Nothing to claim'}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.chevronWrap}>
+                {claimable > 0 && <PulseDot />}
+                <Ionicons name="chevron-forward" size={18} color="#9097A3" />
+              </View>
+            </TouchableOpacity>
+          );
+        })()}
 
         {/* ── Settings ─────────────────────────────────────────────────── */}
-        <SectionHeader title="Settings" />
+        <SectionHeader title="Notifications" />
         <View style={styles.card}>
           <SettingRow
             icon="🔔"
@@ -395,40 +472,48 @@ const styles = StyleSheet.create({
   // Header
   header: {
     backgroundColor: BRAND_PURPLE,
+    paddingTop: 24,
+    paddingBottom: 24,
+    paddingHorizontal: 20,
+    gap: 20,
+  },
+  headerTop: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 32,
-    paddingBottom: 32,
-    paddingHorizontal: 24,
+    gap: 20,
   },
-  avatarWrap: {
-    width: 88, height: 88, borderRadius: 44,
-    overflow: 'hidden',
-    marginBottom: 12,
-    backgroundColor: PURPLE_LIGHT,
+  avatarWrap: {},
+  editBadge: {
+    position: 'absolute', bottom: 0, right: 0,
+    width: 26, height: 26, borderRadius: 999,
+    backgroundColor: WHITE,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: WHITE,
   },
-  avatarImg:      { width: 88, height: 88 },
-  avatarFallback: { width: 88, height: 88, backgroundColor: 'rgba(255,255,255,0.2)' },
-  name:     { fontSize: 22, fontFamily: 'Volte-Semibold', color: WHITE, marginBottom: 2 },
-  username: { fontSize: 14, fontFamily: 'Volte-Medium',   color: 'rgba(255,255,255,0.65)', marginBottom: 16 },
+  headerInfo: { flex: 1, justifyContent: 'center', gap: 2 },
+  name:     { fontSize: 20, fontFamily: 'Volte-Semibold', color: WHITE },
+  username: { fontSize: 13, fontFamily: 'Volte-Medium', color: 'rgba(255,255,255,0.65)', marginBottom: 16 },
 
   // Social counts
-  socialRow:     { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  socialTile:    { alignItems: 'center', paddingHorizontal: 20 },
-  socialCount:   { fontSize: 20, fontFamily: 'Volte-Semibold', color: WHITE },
-  socialLabel:   { fontSize: 12, fontFamily: 'Volte-Medium', color: 'rgba(255,255,255,0.65)', marginTop: 1 },
-  socialDivider: { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,0.25)' },
+  socialRow:     { flexDirection: 'row', alignItems: 'center', gap: 24 },
+  socialTile:    { alignItems: 'flex-start' },
+  socialCount:   { fontSize: 18, fontFamily: 'Volte-Semibold', color: WHITE },
+  socialLabel:   { fontSize: 14, fontFamily: 'Volte-Medium', color: 'rgba(255,255,255,0.65)', marginTop: 1 },
 
   // Header actions row
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  langPill: {
+  headerActions: { flexDirection: 'row', alignItems: 'stretch', gap: 10 },
+  editProfileBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6,
+    borderRadius: 20, height: 36,
+    flex: 1, flexBasis: 0,
   },
-  langPillText:  { fontSize: 13, fontFamily: 'Volte-Medium', color: WHITE },
+  editProfileText: { fontSize: 13, fontFamily: 'Volte-Medium', color: WHITE },
   shareLinkBtn:  {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
     backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6,
+    borderRadius: 20, height: 36,
+    flex: 1, flexBasis: 0,
   },
   shareLinkText: { fontSize: 13, fontFamily: 'Volte-Medium', color: WHITE },
 
@@ -482,6 +567,7 @@ const styles = StyleSheet.create({
   // Upgrade card
   upgradeCard: {
     marginHorizontal: 16,
+    marginTop: 10,
     backgroundColor: BRAND_PURPLE,
     borderRadius: 16,
     padding: 16,
@@ -513,6 +599,9 @@ const styles = StyleSheet.create({
   challengesIcon:  { fontSize: 28 },
   challengesTitle: { fontSize: 15, fontFamily: 'Volte-Semibold', color: TEXT_DARK, marginBottom: 2 },
   challengesSub:   { fontSize: 13, fontFamily: 'Volte-Medium', color: TEXT_MUTED },
+  chevronWrap: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+  },
 
   // Settings
   settingRow:     { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, gap: 12 },
@@ -524,4 +613,23 @@ const styles = StyleSheet.create({
   menuRow:   { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 12 },
   menuIcon:  { fontSize: 18, width: 28, textAlign: 'center' },
   menuLabel: { flex: 1, fontSize: 15, fontFamily: 'Volte-Medium', color: TEXT_DARK },
+
+  // Avatar picker
+  overlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' },
+  pickerSheet: {
+    backgroundColor: BG_CREAM,
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingTop: 12, paddingBottom: 34,
+  },
+  sheetHandle: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: '#D9D5E4', alignSelf: 'center', marginBottom: 16,
+  },
+  pickerTitle: {
+    fontSize: 18, fontFamily: 'Volte-Semibold', color: TEXT_DARK,
+    textAlign: 'center', marginBottom: 20,
+  },
+  pickerGrid:        { paddingHorizontal: 12, paddingBottom: 8 },
+  pickerCell:        { flex: 1, alignItems: 'center', paddingVertical: 8 },
+  pickerCellSelected: { backgroundColor: 'rgba(125,105,171,0.12)', borderRadius: 16 },
 });

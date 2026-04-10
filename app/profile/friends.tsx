@@ -81,15 +81,8 @@ function UserRow({ user, onPress, onFollowToggle }: {
 
       {/* Info */}
       <View style={styles.userInfo}>
-        <View style={styles.userNameRow}>
-          <Text style={styles.displayName}>{user.displayName}</Text>
-          <Text style={styles.langFlag}>{languageFlag(user.language)}</Text>
-        </View>
-        <View style={styles.userMeta}>
-          <Text style={styles.username}>@{user.username}</Text>
-          <Text style={styles.dot}>·</Text>
-          <Text style={styles.streak}>🔥 {user.streak}</Text>
-        </View>
+        <Text style={styles.displayName}>{user.displayName}</Text>
+        <Text style={styles.username}>@{user.username}</Text>
       </View>
 
       {/* Follow button */}

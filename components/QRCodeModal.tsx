@@ -179,16 +179,15 @@ const styles = StyleSheet.create({
 
   // Actions
   actions: {
-    flexDirection: 'row', gap: 12,
+    flexDirection: 'row', gap: 6,
   },
   actionBtn: {
     flex: 1, alignItems: 'center', gap: 8,
-    backgroundColor: BG_CREAM,
+    backgroundColor: WHITE,
     borderRadius: 16, paddingVertical: 16,
   },
   actionIcon: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: PURPLE_LIGHT,
+    width: 44, height: 44,
     alignItems: 'center', justifyContent: 'center',
   },
   actionLabel: { fontSize: 14, fontFamily: 'Volte-Semibold', color: TEXT_DARK },
