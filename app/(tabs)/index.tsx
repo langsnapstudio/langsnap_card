@@ -14,6 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import EnergyBottomSheet from '@/components/EnergyBottomSheet';
+import { getTotalEnergy } from '@/constants/energy-store';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const BRAND_PURPLE = '#7D69AB';
@@ -23,9 +25,6 @@ const TEXT_MUTED   = '#9097A3';
 const WHITE        = '#FFFFFF';
 
 const WELCOME_SHOWN_KEY = 'langsnap:welcome_shown';
-
-// ── Mock data ──────────────────────────────────────────────────────────────────
-const ENERGY_COUNT = 1;
 
 const HSK_DECKS = [
   { id: 'hsk1', title: 'HSK 3.0 Lv. 1', subtitle: '華語水平 3.0（一級）', image: require('@/assets/images/deck_cover_hsk1.png') },
@@ -171,7 +170,9 @@ function WelcomeSheet({ visible, onClose }: { visible: boolean; onClose: () => v
 // ── Learn Tab ─────────────────────────────────────────────────────────────────
 export default function LearnScreen() {
   const router = useRouter();
-  const [showWelcome, setShowWelcome] = useState(false);
+  const [showWelcome, setShowWelcome]   = useState(false);
+  const [showEnergy,  setShowEnergy]    = useState(false);
+  const energyCount = getTotalEnergy();
 
   useEffect(() => {
     AsyncStorage.getItem(WELCOME_SHOWN_KEY).then(val => {
@@ -187,9 +188,9 @@ export default function LearnScreen() {
 
       {/* ── Energy badge ────────────────────────────────────────────────── */}
       <View style={styles.topBar}>
-        <TouchableOpacity style={styles.energyBadge} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.energyBadge} activeOpacity={0.8} onPress={() => setShowEnergy(true)}>
           <Ionicons name="flash" size={14} color="#F5C842" />
-          <Text style={styles.energyCount}>{ENERGY_COUNT}</Text>
+          <Text style={styles.energyCount}>{energyCount}</Text>
         </TouchableOpacity>
       </View>
 
@@ -229,6 +230,7 @@ export default function LearnScreen() {
       </ScrollView>
 
       <WelcomeSheet visible={showWelcome} onClose={() => setShowWelcome(false)} />
+      <EnergyBottomSheet visible={showEnergy} onClose={() => setShowEnergy(false)} />
     </SafeAreaView>
   );
 }

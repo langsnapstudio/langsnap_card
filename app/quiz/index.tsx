@@ -77,9 +77,11 @@ export default function QuizScreen() {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [answered,      setAnswered]      = useState(false);
   const [score,         setScore]         = useState(0);
+  const scoreRef = useRef(0);
 
   // Audio
   const soundRef     = useRef<Audio.Sound | null>(null);
+  const sfxRef       = useRef<Audio.Sound | null>(null);
   const isPlayingRef = useRef(false);
   const [isPlaying, setIsPlaying] = useState(false);
 
@@ -109,9 +111,27 @@ export default function QuizScreen() {
     }
   }, []);
 
+  const playSfx = useCallback(async (correct: boolean) => {
+    try {
+      await sfxRef.current?.unloadAsync();
+      const src = correct
+        ? require('@/assets/audio/quiz_correct.wav')
+        : require('@/assets/audio/quiz_wrong.wav');
+      const { sound } = await Audio.Sound.createAsync(src);
+      sfxRef.current = sound;
+      await sound.playAsync();
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) sound.unloadAsync();
+      });
+    } catch {}
+  }, []);
+
   useEffect(() => {
     Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-    return () => { soundRef.current?.unloadAsync(); };
+    return () => {
+      soundRef.current?.unloadAsync();
+      sfxRef.current?.unloadAsync();
+    };
   }, []);
 
   // Auto-play audio for audio-type questions when question loads
@@ -133,7 +153,10 @@ export default function QuizScreen() {
     const q         = questions[qIndex];
     const isCorrect = optionIndex === q.correctIndex;
 
+    playSfx(isCorrect);
+
     if (isCorrect) {
+      scoreRef.current += 1;
       setScore(s => s + 1);
     } else {
       // Shake the wrong button
@@ -159,7 +182,7 @@ export default function QuizScreen() {
 
     const nextQ = qIndex + 1;
     if (nextQ >= total) {
-      router.back(); // TODO: navigate to results screen
+      router.replace({ pathname: '/quiz/results', params: { score: String(scoreRef.current), total: String(total) } });
     } else {
       setQIndex(nextQ);
       setSelectedIndex(null);
