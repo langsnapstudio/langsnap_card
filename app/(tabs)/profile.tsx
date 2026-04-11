@@ -3,6 +3,7 @@ import {
   Animated,
   Clipboard,
   Image,
+  Linking,
   ScrollView,
   StyleSheet,
   Switch,
@@ -17,9 +18,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/lib/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFollowingCount, getFollowersCount } from '@/constants/social-store';
+import { ALL_LANGUAGES, LANGUAGE_MAP } from '@/constants/languages';
 import QRCodeModal from '@/components/QRCodeModal';
 import UpgradeModal from '@/components/UpgradeModal';
+import ReportBugSheet from '@/components/ReportBugSheet';
+import { DEV_FORCE_ONBOARDING_KEY, DEV_IS_PREMIUM_KEY } from '@/constants/storage-keys';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const BRAND_PURPLE  = '#7D69AB';
@@ -137,12 +142,12 @@ function SectionHeader({ title }: { title: string }) {
 }
 
 function SettingRow({
-  icon, label, value, onValueChange,
+  icon, label, value, onValueChange, style,
 }: {
-  icon: string; label: string; value: boolean; onValueChange: (v: boolean) => void;
+  icon: string; label: string; value: boolean; onValueChange: (v: boolean) => void; style?: any;
 }) {
   return (
-    <View style={styles.settingRow}>
+    <View style={[styles.settingRow, style]}>
       <Text style={styles.settingIcon}>{icon}</Text>
       <Text style={styles.settingLabel}>{label}</Text>
       <Switch
@@ -251,13 +256,29 @@ export default function ProfileScreen() {
   const { profile, user, signOut, refreshProfile } = useAuth();
   const router = useRouter();
 
+  const devResetNewUser = async () => {
+    Alert.alert('Reset as new user?', 'This will clear all local data and force the onboarding flow on next sign-in.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Reset', style: 'destructive',
+        onPress: async () => {
+          await AsyncStorage.clear();
+          // Re-set the flag AFTER clear so nav guard forces onboarding on next sign-in
+          await AsyncStorage.setItem(DEV_FORCE_ONBOARDING_KEY, 'true');
+          await signOut();
+        },
+      },
+    ]);
+  };
+
   const avatarId = profile?.avatar_id ?? 'dog';
 
   const [feats,      setFeats]      = useState<Feat[]>(MOCK_FEATS);
   const [reminder,   setReminder]   = useState(false);
   const [freezeNotif,setFreezeNotif]= useState(true);
-  const [qrVisible,      setQrVisible]      = useState(false);
-  const [upgradeVisible, setUpgradeVisible] = useState(false);
+  const [qrVisible,        setQrVisible]        = useState(false);
+  const [upgradeVisible,   setUpgradeVisible]   = useState(false);
+  const [reportBugVisible, setReportBugVisible] = useState(false);
 
   const followingCount = getFollowingCount();
   const followersCount = getFollowersCount();
@@ -278,7 +299,17 @@ export default function ProfileScreen() {
     setFeats(prev => prev.map(f => f.id === id ? { ...f, claimed: true } : f));
   }
 
-  const isPremium = false; // replace with real subscription check
+  const [devIsPremium, setDevIsPremium] = useState(false);
+  useEffect(() => {
+    AsyncStorage.getItem(DEV_IS_PREMIUM_KEY).then(val => setDevIsPremium(val === 'true'));
+  }, []);
+  const isPremium = __DEV__ ? devIsPremium : false; // replace with real subscription check
+
+  const devTogglePremium = async () => {
+    const next = !devIsPremium;
+    await AsyncStorage.setItem(DEV_IS_PREMIUM_KEY, String(next));
+    setDevIsPremium(next);
+  };
 
   return (
     <SafeAreaView style={styles.root} edges={[]}>
@@ -295,7 +326,14 @@ export default function ProfileScreen() {
 
             {/* Right: name + username + following/followers */}
             <View style={styles.headerInfo}>
-              <Text style={styles.name}>{profile?.display_name ?? '—'}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={styles.name}>{profile?.display_name ?? '—'}</Text>
+                {isPremium && (
+                  <View style={styles.premiumBadge}>
+                    <Text style={styles.premiumBadgeText}>👑 Premium</Text>
+                  </View>
+                )}
+              </View>
               <Text style={styles.username}>@{profile?.username ?? '—'}</Text>
               <View style={styles.socialRow}>
                 <TouchableOpacity
@@ -303,7 +341,21 @@ export default function ProfileScreen() {
                   onPress={() => router.push('/profile/courses')}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.socialCount}>1</Text>
+                  {/* Flag emoji + optional +N badge */}
+                  {(() => {
+                    const activeLang = LANGUAGE_MAP[profile?.target_language ?? 'mainland'] ?? LANGUAGE_MAP['mainland'];
+                    const extraCount = ALL_LANGUAGES.length - 1;
+                    return (
+                      <View style={styles.coursesStatRow}>
+                        <Text style={styles.coursesFlagEmoji}>{activeLang.emoji}</Text>
+                        {extraCount > 0 && (
+                          <View style={styles.coursesBadge}>
+                            <Text style={styles.coursesBadgeText}>+{extraCount}</Text>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })()}
                   <Text style={styles.socialLabel}>Courses</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -385,10 +437,21 @@ export default function ProfileScreen() {
         {isPremium && (
           <View style={[styles.card, styles.premiumCard, { marginTop: 16 }]}>
             <Text style={styles.premiumIcon}>👑</Text>
-            <View>
-              <Text style={styles.premiumTitle}>Premium</Text>
-              <Text style={styles.premiumSub}>All levels unlocked</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.premiumTitle}>Premium · Yearly</Text>
+              <Text style={styles.premiumSub}>Renews May 12, 2027</Text>
             </View>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                const url = Platform.OS === 'ios'
+                  ? 'https://apps.apple.com/account/subscriptions'
+                  : 'https://play.google.com/store/account/subscriptions';
+                Linking.openURL(url);
+              }}
+            >
+              <Text style={styles.manageSubText}>Manage</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -439,14 +502,28 @@ export default function ProfileScreen() {
         {/* ── Account ──────────────────────────────────────────────────── */}
         <SectionHeader title="Account" />
         <View style={styles.card}>
-          <MenuRow icon="🔒" label="Privacy Policy" />
-          <View style={styles.settingDivider} />
-          <MenuRow icon="📋" label="Terms of Use" />
+          <MenuRow icon="🐛" label="Report a bug" onPress={() => setReportBugVisible(true)} />
           <View style={styles.settingDivider} />
           <MenuRow icon="🚪" label="Sign out" onPress={signOut} />
           <View style={styles.settingDivider} />
-          <MenuRow icon="🗑️" label="Delete account" destructive />
+          <MenuRow icon="🗑️" label="Delete account" destructive onPress={() => router.push('/profile/delete-account')} />
+          {__DEV__ && (
+            <>
+              <View style={styles.settingDivider} />
+              <MenuRow icon="🔄" label="[DEV] Reset as new user" destructive onPress={devResetNewUser} />
+              <View style={styles.settingDivider} />
+              <MenuRow icon="👑" label={`[DEV] Premium: ${devIsPremium ? 'ON' : 'OFF'}`} onPress={devTogglePremium} />
+            </>
+          )}
         </View>
+
+        {/* ── Footer links ─────────────────────────────────────────────── */}
+        <View style={styles.footerLinks}>
+          <TouchableOpacity activeOpacity={0.7}><Text style={styles.footerLink}>Privacy Policy</Text></TouchableOpacity>
+          <Text style={styles.footerDot}>•</Text>
+          <TouchableOpacity activeOpacity={0.7}><Text style={styles.footerLink}>Terms of Use</Text></TouchableOpacity>
+        </View>
+        <Text style={styles.appVersion}>App Version: 1.0.0</Text>
 
         <View style={{ height: 32 }} />
       </ScrollView>
@@ -459,6 +536,10 @@ export default function ProfileScreen() {
       <UpgradeModal
         visible={upgradeVisible}
         onClose={() => setUpgradeVisible(false)}
+      />
+      <ReportBugSheet
+        visible={reportBugVisible}
+        onClose={() => setReportBugVisible(false)}
       />
     </SafeAreaView>
   );
@@ -495,10 +576,20 @@ const styles = StyleSheet.create({
   username: { fontSize: 13, fontFamily: 'Volte-Medium', color: 'rgba(255,255,255,0.65)', marginBottom: 16 },
 
   // Social counts
-  socialRow:     { flexDirection: 'row', alignItems: 'center', gap: 24 },
-  socialTile:    { alignItems: 'flex-start' },
-  socialCount:   { fontSize: 18, fontFamily: 'Volte-Semibold', color: WHITE },
-  socialLabel:   { fontSize: 14, fontFamily: 'Volte-Medium', color: 'rgba(255,255,255,0.65)', marginTop: 1 },
+  socialRow:   { flexDirection: 'row', alignItems: 'center', gap: 24 },
+  socialTile:  { alignItems: 'flex-start' },
+  socialCount: { fontSize: 18, fontFamily: 'Volte-Semibold', color: WHITE, height: 26, lineHeight: 26 },
+  socialLabel: { fontSize: 14, fontFamily: 'Volte-Medium', color: 'rgba(255,255,255,0.65)', marginTop: 1 },
+
+  // Courses stat — same height as socialCount (26px)
+  coursesStatRow:   { flexDirection: 'row', alignItems: 'center', gap: 5, height: 26, overflow: 'hidden' },
+  coursesFlagEmoji: { fontSize: 20, lineHeight: 26 },
+  coursesBadge: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 6, paddingHorizontal: 5, paddingVertical: 1,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
+  },
+  coursesBadgeText: { fontSize: 12, fontFamily: 'Volte-Semibold', color: WHITE },
 
   // Header actions row
   headerActions: { flexDirection: 'row', alignItems: 'stretch', gap: 10 },
@@ -583,10 +674,14 @@ const styles = StyleSheet.create({
   upgradeBtnText: { fontSize: 14, fontFamily: 'Volte-Semibold', color: BRAND_PURPLE },
 
   // Premium badge
-  premiumCard: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  premiumIcon:  { fontSize: 28 },
-  premiumTitle: { fontSize: 16, fontFamily: 'Volte-Semibold', color: TEXT_DARK },
-  premiumSub:   { fontSize: 13, fontFamily: 'Volte-Medium',   color: TEXT_MUTED },
+  premiumCard:    { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  premiumBadge:     { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20, paddingHorizontal: 8, paddingTop: 1, paddingBottom: 4 },
+  premiumBadgeText: { fontSize: 12, fontFamily: 'Volte-Semibold', color: '#FFFFFF' },
+  premiumIcon:    { fontSize: 28 },
+  premiumTitle:   { fontSize: 16, fontFamily: 'Volte-Semibold', color: TEXT_DARK },
+  premiumSub:     { fontSize: 13, fontFamily: 'Volte-Medium',   color: TEXT_MUTED, marginTop: 4 },
+  manageSubRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14 },
+  manageSubText:  { fontSize: 15, fontFamily: 'Volte-Medium', color: '#7D69AB' },
 
   // Challenges card
   challengesCard: {
@@ -604,13 +699,17 @@ const styles = StyleSheet.create({
   },
 
   // Settings
-  settingRow:     { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, gap: 12 },
+  settingRow:     { flexDirection: 'row', alignItems: 'center', paddingTop: 0, paddingBottom: 0, gap: 12 },
   settingIcon:    { fontSize: 20, width: 28, textAlign: 'center' },
   settingLabel:   { flex: 1, fontSize: 15, fontFamily: 'Volte-Medium', color: TEXT_DARK },
-  settingDivider: { height: 1, backgroundColor: BORDER, marginVertical: 4 },
+  settingDivider: { height: 1, backgroundColor: BORDER, marginVertical: 16 },
 
   // Menu
-  menuRow:   { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 12 },
+  menuRow:   { flexDirection: 'row', alignItems: 'center', paddingVertical: 0, gap: 12 },
+  footerLinks:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 24 },
+  footerLink:   { fontSize: 13, fontFamily: 'Volte-Medium', color: TEXT_MUTED },
+  footerDot:    { fontSize: 13, color: TEXT_MUTED },
+  appVersion:   { fontSize: 13, fontFamily: 'Volte', color: TEXT_MUTED, textAlign: 'center', marginTop: 16 },
   menuIcon:  { fontSize: 18, width: 28, textAlign: 'center' },
   menuLabel: { flex: 1, fontSize: 15, fontFamily: 'Volte-Medium', color: TEXT_DARK },
 

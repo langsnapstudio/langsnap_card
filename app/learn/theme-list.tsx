@@ -27,7 +27,7 @@ const FILTERS = [
   { id: 'all',        label: 'All',        icon: null },
   { id: 'common',     label: 'Common',     icon: 'chatbubble-ellipses-outline' },
   { id: 'occasional', label: 'Occasional', icon: 'sparkles-outline' },
-  { id: 'specialize', label: 'Specialize', icon: 'trophy-outline' },
+  { id: 'specialize', label: 'Specialise', icon: 'trophy-outline' },
 ] as const;
 
 type FilterId = typeof FILTERS[number]['id'];

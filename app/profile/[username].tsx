@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   Image,
   ScrollView,
   StyleSheet,
@@ -19,6 +18,8 @@ import {
   isFollowing,
 } from '@/constants/social-store';
 import QRCodeModal from '@/components/QRCodeModal';
+import ReportBugSheet from '@/components/ReportBugSheet';
+import { LANGUAGE_MAP, ALL_LANGUAGES } from '@/constants/languages';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const BRAND_PURPLE = '#7D69AB';
@@ -66,7 +67,8 @@ export default function PublicProfileScreen() {
 
   const user = getUserByUsername(username ?? '');
   const [, forceUpdate] = useState(0);
-  const [qrVisible, setQrVisible] = useState(false);
+  const [qrVisible,        setQrVisible]        = useState(false);
+  const [reportBugVisible, setReportBugVisible] = useState(false);
 
   if (!user) {
     return (
@@ -93,14 +95,7 @@ export default function PublicProfileScreen() {
   }
 
   function handleReport() {
-    Alert.alert(
-      'Report user',
-      `Report @${user?.username} for inappropriate behaviour?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Report', style: 'destructive', onPress: () => {} },
-      ]
-    );
+    setReportBugVisible(true);
   }
 
   return (
@@ -140,7 +135,20 @@ export default function PublicProfileScreen() {
                 activeOpacity={0.8}
                 onPress={() => router.push({ pathname: '/profile/courses', params: { username: user.username } })}
               >
-                <Text style={styles.statValue}>{user.coursesCount}</Text>
+                {(() => {
+                  const activeLang = LANGUAGE_MAP[user.language] ?? LANGUAGE_MAP['mainland'];
+                  const extraCount = (user.coursesCount ?? ALL_LANGUAGES.length) - 1;
+                  return (
+                    <View style={styles.coursesStatRow}>
+                      <Text style={styles.coursesFlagEmoji}>{activeLang.emoji}</Text>
+                      {extraCount > 0 && (
+                        <View style={styles.coursesBadge}>
+                          <Text style={styles.coursesBadgeText}>+{extraCount}</Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })()}
                 <Text style={styles.statLabel}>Courses</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -220,10 +228,10 @@ export default function PublicProfileScreen() {
           </View>
         </View>
 
-        {/* Report */}
+        {/* Report a bug */}
         <TouchableOpacity style={styles.reportRow} onPress={handleReport} activeOpacity={0.7}>
-          <Ionicons name="flag-outline" size={16} color={RED} />
-          <Text style={styles.reportText}>Report @{user.username}</Text>
+          <Ionicons name="bug-outline" size={16} color={RED} />
+          <Text style={styles.reportText}>Report a bug</Text>
         </TouchableOpacity>
 
         <View style={{ height: 32 }} />
@@ -233,6 +241,10 @@ export default function PublicProfileScreen() {
         visible={qrVisible}
         username={user.username}
         onClose={() => setQrVisible(false)}
+      />
+      <ReportBugSheet
+        visible={reportBugVisible}
+        onClose={() => setReportBugVisible(false)}
       />
     </SafeAreaView>
   );
@@ -262,10 +274,20 @@ const styles = StyleSheet.create({
   joinDate:    { fontSize: 11, fontFamily: 'Volte-Medium', color: 'rgba(255,255,255,0.5)', marginBottom: 16 },
 
   // Stats
-  statsRow:   { flexDirection: 'row', alignItems: 'center', gap: 24 },
-  statTile:   { alignItems: 'flex-start' },
-  statValue:  { fontSize: 18, fontFamily: 'Volte-Semibold', color: WHITE },
-  statLabel:  { fontSize: 14, fontFamily: 'Volte-Medium', color: 'rgba(255,255,255,0.65)', marginTop: 1 },
+  statsRow:  { flexDirection: 'row', alignItems: 'center', gap: 24 },
+  statTile:  { alignItems: 'flex-start' },
+  statValue: { fontSize: 18, fontFamily: 'Volte-Semibold', color: WHITE, height: 26, lineHeight: 26 },
+  statLabel: { fontSize: 14, fontFamily: 'Volte-Medium', color: 'rgba(255,255,255,0.65)', marginTop: 1 },
+
+  // Courses stat
+  coursesStatRow:   { flexDirection: 'row', alignItems: 'center', gap: 5, height: 26, overflow: 'hidden' },
+  coursesFlagEmoji: { fontSize: 20, lineHeight: 26 },
+  coursesBadge: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 6, paddingHorizontal: 5, paddingVertical: 1,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
+  },
+  coursesBadgeText: { fontSize: 12, fontFamily: 'Volte-Semibold', color: WHITE },
 
   // Language pill
   langPill: {

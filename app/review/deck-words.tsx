@@ -21,7 +21,7 @@ const TEXT_DARK    = '#262626';
 const TEXT_MUTED   = '#9097A3';
 const WHITE        = '#FFFFFF';
 
-// ── Card row (same style as summary screen) ────────────────────────────────────
+// ── Card row ───────────────────────────────────────────────────────────────────
 function CardRow({ card }: { card: Card }) {
   const bg       = card.cardColor ?? BRAND_PURPLE;
   const txtColor = cardTextColor(bg);
@@ -45,11 +45,11 @@ function CardRow({ card }: { card: Card }) {
 
 // ── Screen ─────────────────────────────────────────────────────────────────────
 export default function DeckWordsScreen() {
-  const router = useRouter();
+  const router  = useRouter();
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
   const deck = DECK_DATA[deckId ?? ''];
 
-  const [activeTag, setActiveTag]       = useState<string | null>(null);
+  const [activeTag,       setActiveTag]       = useState<string | null>(null);
   const [navTitleVisible, setNavTitleVisible] = useState(false);
 
   if (!deck) return null;
@@ -59,33 +59,22 @@ export default function DeckWordsScreen() {
   const visibleCards = activeTag
     ? allCards.filter(c => c.tags?.includes(activeTag))
     : allCards;
-
   const totalCount = allCards.length;
 
   const handleReview = () => {
-    const cards = visibleCards.length > 0 ? visibleCards : allCards;
-    setReviewSession({
-      cards,
-      deckTitle: deck.title,
-      config:    DEFAULT_REVIEW_CONFIG,
-    });
+    setReviewSession({ cards: allCards, deckTitle: deck.title, config: DEFAULT_REVIEW_CONFIG });
     router.push('/review/flashcard');
   };
 
   const handleQuiz = () => {
-    const cards = visibleCards.length > 0 ? visibleCards : allCards;
-    setReviewSession({
-      cards,
-      deckTitle: deck.title,
-      config:    DEFAULT_REVIEW_CONFIG,
-    });
+    setReviewSession({ cards: allCards, deckTitle: deck.title, config: DEFAULT_REVIEW_CONFIG });
     router.push('/quiz');
   };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
 
-      {/* ── Fixed nav bar ──────────────────────────────────────────────── */}
+      {/* Nav bar */}
       <View style={styles.navBar}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={TEXT_DARK} />
@@ -96,16 +85,13 @@ export default function DeckWordsScreen() {
         <View style={styles.navSpacer} />
       </View>
 
-      {/* ── Scrollable content ─────────────────────────────────────────── */}
+      {/* Scrollable content */}
       <ScrollView
         style={styles.list}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
-        onScroll={e => {
-          const y = e.nativeEvent.contentOffset.y;
-          setNavTitleVisible(y > 72);
-        }}
+        onScroll={e => setNavTitleVisible(e.nativeEvent.contentOffset.y > 72)}
       >
         {/* Deck info */}
         <View style={styles.deckInfo}>
@@ -130,7 +116,6 @@ export default function DeckWordsScreen() {
               All {totalCount}
             </Text>
           </TouchableOpacity>
-
           {allTags.map(tag => {
             const active = activeTag === tag;
             return (
@@ -152,9 +137,11 @@ export default function DeckWordsScreen() {
         {visibleCards.map((card, i) => (
           <CardRow key={`${deckId}-${i}-${card.id}`} card={card} />
         ))}
+
+        <View style={{ height: 16 }} />
       </ScrollView>
 
-      {/* ── Bottom action bar ──────────────────────────────────────────── */}
+      {/* Bottom action bar */}
       <View style={styles.actionBar}>
         <TouchableOpacity style={styles.actionBtn} activeOpacity={0.8} onPress={handleReview}>
           <View style={styles.actionIconCircle}>
@@ -162,9 +149,7 @@ export default function DeckWordsScreen() {
           </View>
           <Text style={styles.actionLabel}>Review</Text>
         </TouchableOpacity>
-
         <View style={styles.actionDivider} />
-
         <TouchableOpacity style={styles.actionBtn} activeOpacity={0.8} onPress={handleQuiz}>
           <View style={styles.actionIconCircle}>
             <Ionicons name="game-controller" size={20} color={BRAND_PURPLE} />
@@ -181,63 +166,42 @@ export default function DeckWordsScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: BG_CREAM },
 
-  // Fixed nav bar
   navBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 12,
   },
-  backBtn:    { width: 32 },
-  navTitle:   { flex: 1, textAlign: 'center', fontSize: 16, fontFamily: 'Volte-Semibold', color: TEXT_DARK },
-  navSpacer:  { width: 32 },
+  backBtn:   { width: 32 },
+  navTitle:  { flex: 1, textAlign: 'center', fontSize: 16, fontFamily: 'Volte-Semibold', color: TEXT_DARK },
+  navSpacer: { width: 32 },
 
-  // Deck info (scrollable)
-  deckInfo: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 16, paddingBottom: 16 },
-  coverWrap: {
-    width: 72, height: 72,
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: BG_CREAM,
-  },
+  deckInfo:     { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 16, paddingBottom: 16 },
+  coverWrap:    { width: 72, height: 72, borderRadius: 16, overflow: 'hidden', backgroundColor: BG_CREAM },
   cover:        { width: '100%', height: '100%' },
   deckText:     { flex: 1, gap: 2 },
   deckTitle:    { fontSize: 22, fontFamily: 'Volte-Semibold', color: TEXT_DARK },
   deckSubtitle: { fontSize: 14, fontFamily: 'Volte',          color: TEXT_MUTED },
   deckCount:    { fontSize: 14, fontFamily: 'Volte-Semibold', color: BRAND_PURPLE, marginTop: 4 },
 
-  // Filter chips
   filterRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 20,
-    paddingTop: 4,
-    paddingBottom: 16,
-    gap: 8,
+    flexDirection: 'row', flexWrap: 'wrap',
+    paddingHorizontal: 20, paddingTop: 4, paddingBottom: 8, gap: 8,
   },
   filterPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: WHITE,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: WHITE, borderRadius: 20,
+    paddingHorizontal: 16, paddingVertical: 8,
   },
   filterPillActive:  { backgroundColor: BRAND_PURPLE },
   filterLabel:       { fontSize: 14, fontFamily: 'Volte-Medium', color: TEXT_DARK },
   filterLabelActive: { color: WHITE },
 
-  // Word list
   list:        { flex: 1 },
   listContent: { paddingBottom: 16 },
 
   cardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    gap: 16,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 20, paddingVertical: 10, gap: 16,
+    backgroundColor: BG_CREAM,
   },
   cardThumb:     { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   cardThumbImg:  { width: 24, height: 24 },
@@ -246,32 +210,21 @@ const styles = StyleSheet.create({
   cardMeaning:   { fontSize: 16, fontFamily: 'Volte-Semibold', color: TEXT_DARK, marginBottom: 3 },
   cardPinyin:    { fontSize: 14, fontFamily: 'Volte-Medium',   color: BRAND_PURPLE },
 
-  // Bottom action bar
   actionBar: {
-    flexDirection: 'row',
-    backgroundColor: WHITE,
-    borderRadius: 20,
-    marginHorizontal: 16,
-    marginBottom: 8,
+    flexDirection: 'row', backgroundColor: WHITE,
+    borderRadius: 20, marginHorizontal: 16, marginBottom: 8,
     paddingVertical: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06, shadowRadius: 8, elevation: 8,
   },
   actionBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
+    flex: 1, flexDirection: 'row',
+    alignItems: 'center', justifyContent: 'center', gap: 10,
   },
   actionIconCircle: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: '#EDE9F5',
-    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#EDE9F5', alignItems: 'center', justifyContent: 'center',
   },
-  actionLabel:  { fontSize: 15, fontFamily: 'Volte-Semibold', color: TEXT_DARK },
-  actionDivider:{ width: 1, backgroundColor: '#E8E5DF', marginVertical: 4 },
+  actionLabel:   { fontSize: 15, fontFamily: 'Volte-Semibold', color: TEXT_DARK },
+  actionDivider: { width: 1, backgroundColor: '#E8E5DF', marginVertical: 4 },
 });

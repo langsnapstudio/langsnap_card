@@ -10,12 +10,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { LANGUAGE_MAP } from '@/constants/languages';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import EnergyBottomSheet from '@/components/EnergyBottomSheet';
 import { getTotalEnergy } from '@/constants/energy-store';
+import { useAuth } from '@/lib/auth';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const BRAND_PURPLE = '#7D69AB';
@@ -25,6 +27,7 @@ const TEXT_MUTED   = '#9097A3';
 const WHITE        = '#FFFFFF';
 
 const WELCOME_SHOWN_KEY = 'langsnap:welcome_shown';
+
 
 const HSK_DECKS = [
   { id: 'hsk1', title: 'HSK 3.0 Lv. 1', subtitle: '華語水平 3.0（一級）', image: require('@/assets/images/deck_cover_hsk1.png') },
@@ -170,9 +173,13 @@ function WelcomeSheet({ visible, onClose }: { visible: boolean; onClose: () => v
 // ── Learn Tab ─────────────────────────────────────────────────────────────────
 export default function LearnScreen() {
   const router = useRouter();
+  const { profile } = useAuth();
   const [showWelcome, setShowWelcome]   = useState(false);
   const [showEnergy,  setShowEnergy]    = useState(false);
   const energyCount = getTotalEnergy();
+
+  const langKey  = profile?.target_language ?? 'mainland';
+  const langConf = LANGUAGE_MAP[langKey] ?? LANGUAGE_MAP['mainland'];
 
   useEffect(() => {
     AsyncStorage.getItem(WELCOME_SHOWN_KEY).then(val => {
@@ -186,8 +193,19 @@ export default function LearnScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
 
-      {/* ── Energy badge ────────────────────────────────────────────────── */}
+      {/* ── Top bar: language indicator (left) + energy badge (right) ───── */}
       <View style={styles.topBar}>
+        {/* Language indicator */}
+        <TouchableOpacity
+          style={styles.langBadge}
+          activeOpacity={0.8}
+          onPress={() => router.push('/profile/courses')}
+        >
+          <Text style={styles.langEmoji}>{langConf.emoji}</Text>
+          <Text style={styles.langLabel}>{langConf.shortLabel}</Text>
+        </TouchableOpacity>
+
+        {/* Energy badge */}
         <TouchableOpacity style={styles.energyBadge} activeOpacity={0.8} onPress={() => setShowEnergy(true)}>
           <Ionicons name="flash" size={14} color="#F5C842" />
           <Text style={styles.energyCount}>{energyCount}</Text>
@@ -246,11 +264,28 @@ const styles = StyleSheet.create({
   // Top bar with energy badge
   topBar: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 12,
   },
+  langBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: WHITE,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  langEmoji: { fontSize: 18 },
+  langLabel: { fontSize: 13, color: TEXT_DARK, fontFamily: 'Volte-Semibold' },
   energyBadge: {
     flexDirection: 'row',
     alignItems: 'center',

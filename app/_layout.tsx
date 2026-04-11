@@ -3,14 +3,16 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
+import { StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider, useAuth } from '@/lib/auth';
 
 SplashScreen.preventAutoHideAsync();
 
 // ── Navigation guard ────────────────────────────────────────────────────────────
 function RootLayoutNav() {
-  const { session, profile, loading } = useAuth();
-  const router = useRouter();
+  const { session, profile, loading, devForceOnboarding, clearDevForce } = useAuth();
+  const router   = useRouter();
   const segments = useSegments();
 
   useEffect(() => {
@@ -18,24 +20,29 @@ function RootLayoutNav() {
 
     const inSignIn     = segments[0] === 'sign-in';
     const inOnboarding = segments[0] === 'onboarding';
-    const inTabs       = segments[0] === '(tabs)';
 
     if (!session) {
       if (!inSignIn) router.replace('/sign-in');
-    } else if (!profile?.username) {
-      // Need username → go there unless already on it
+      return;
+    }
+
+    // DEV: force onboarding regardless of profile state
+    if (devForceOnboarding) {
+      clearDevForce();
+      if (segments[1] !== 'username') router.replace('/onboarding/username');
+      return;
+    }
+
+    if (!profile?.username) {
       if (segments[1] !== 'username') router.replace('/onboarding/username');
     } else if (!profile?.target_language) {
-      // Have username, need language → go there unless already on it
       if (segments[1] !== 'language') router.replace('/onboarding/language');
     } else if (profile?.target_language === 'taiwan' && !profile?.reading_system) {
-      // Taiwan user needs reading system → go there unless already on it
       if (segments[1] !== 'reading') router.replace('/onboarding/reading');
     } else {
-      // All done → go to tabs
       if (inSignIn || inOnboarding) router.replace('/(tabs)');
     }
-  }, [session, profile, loading]);
+  }, [session, profile, loading, devForceOnboarding]);
 
   if (loading) return null;
 
@@ -50,6 +57,8 @@ function RootLayoutNav() {
     </Stack>
   );
 }
+
+const styles = StyleSheet.create({ root: { flex: 1 } });
 
 // ── Root layout ─────────────────────────────────────────────────────────────────
 export default function RootLayout() {
@@ -68,9 +77,11 @@ export default function RootLayout() {
   if (!loaded && !error) return null;
 
   return (
-    <AuthProvider>
-      <RootLayoutNav />
-      <StatusBar style="auto" />
-    </AuthProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <AuthProvider>
+        <RootLayoutNav />
+        <StatusBar style="auto" />
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
 }

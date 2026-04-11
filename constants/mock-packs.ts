@@ -3,16 +3,26 @@
 // illustrationUrl / audioUrl / packBagImage will become string URLs when Supabase is ready.
 // For now they hold local require() numbers.
 
+export type ExampleSentence = {
+  chinese: string;
+  pinyin:  string;
+  zhuyin?: string;
+  meaning: string;
+};
+
 export type Card = {
   id: string;
   word: string;
   pinyin: string;
+  zhuyin?: string;                  // Taiwan reading system
   meaning: string;
   partOfSpeech: string;
   illustrationUrl: number | string; // number = local require, string = Supabase URL
   audioUrl: number | string;        // number = local require, string = Supabase URL
   cardColor: string;                // hex, picked per card in back office
-  tags?: string[];                  // sub-category tags set by back office (e.g. 'Mammals', 'Birds')
+  tags?: string[];                  // sub-category tags (e.g. 'Mammals', 'Birds')
+  exampleSentence1?: ExampleSentence;
+  exampleSentence2?: ExampleSentence;
 };
 
 export type PackMeta = {
@@ -98,16 +108,48 @@ export const DECK_DATA: Record<string, DeckMeta> = {
         thumbnail: require('../assets/images/illustration-cat.png'),
         energyCost: 0, isLocked: false, isPremium: false,
         cards: [
-          { id: '1',  word: '猫',   pinyin: 'māo',    meaning: 'Cat',     partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-cat.png'),     audioUrl: require('../assets/audio/01 CN_Cat.MP3'),     cardColor: '#f6a275', tags: ['Mammals'] },
-          { id: '2',  word: '狗',   pinyin: 'gǒu',    meaning: 'Dog',     partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-dog.png'),     audioUrl: require('../assets/audio/02 CN_Dog.MP3'),     cardColor: '#fef08a', tags: ['Mammals'] },
-          { id: '3',  word: '鸡',   pinyin: 'jī',     meaning: 'Chicken', partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-chicken.png'), audioUrl: require('../assets/audio/03 CN_Chicken.MP3'), cardColor: '#7dd3fc', tags: ['Birds'] },
-          { id: '4',  word: '猪',   pinyin: 'zhū',    meaning: 'Pig',     partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-pig.png'),     audioUrl: require('../assets/audio/04 CN_Pig.MP3'),     cardColor: '#f472b6', tags: ['Mammals'] },
-          { id: '5',  word: '牛',   pinyin: 'niú',    meaning: 'Cow',     partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-cow.png'),     audioUrl: require('../assets/audio/05 CN_Cow.MP3'),     cardColor: '#2dd4bf', tags: ['Mammals'] },
-          { id: '6',  word: '鸟',   pinyin: 'niǎo',   meaning: 'Bird',    partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-bird.png'),    audioUrl: require('../assets/audio/06 CN_Bird.MP3'),    cardColor: '#ce9c89', tags: ['Birds'] },
-          { id: '7',  word: '鱼',   pinyin: 'yú',     meaning: 'Fish',    partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-fish.png'),    audioUrl: require('../assets/audio/07 CN_Fish.MP3'),    cardColor: '#7dd3fc', tags: ['Aquatic'] },
-          { id: '8',  word: '马',   pinyin: 'mǎ',     meaning: 'Horse',   partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-horse.png'),   audioUrl: require('../assets/audio/08 CN_Horse.MP3'),   cardColor: '#ce9c89', tags: ['Mammals'] },
-          { id: '9',  word: '老鼠', pinyin: 'lǎoshǔ', meaning: 'Mouse',   partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-mouse.png'),   audioUrl: require('../assets/audio/09 CN_Mouse.MP3'),   cardColor: '#262626', tags: ['Mammals'] },
-          { id: '10', word: '老虎', pinyin: 'lǎohǔ',  meaning: 'Tiger',   partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-tiger.png'),   audioUrl: require('../assets/audio/10 CN_Tiger.MP3'),   cardColor: '#312e81', tags: ['Mammals'] },
+          {
+            id: '1', word: '猫', pinyin: 'māo', zhuyin: 'ㄇㄠ', meaning: 'Cat', partOfSpeech: 'n.',
+            illustrationUrl: require('../assets/images/illustration-cat.png'),
+            audioUrl: require('../assets/audio/01 CN_Cat.MP3'),
+            cardColor: '#f6a275', tags: ['Mammals'],
+            exampleSentence1: { chinese: '这只猫很可爱。', pinyin: 'Zhè zhī māo hěn kě\'ài.', zhuyin: 'ㄓㄜˋ ㄓ ㄇㄠ ㄏㄣˇ ㄎㄜˇ ㄞˋ。', meaning: 'This cat is very cute.' },
+            exampleSentence2: { chinese: '猫喜欢睡觉。', pinyin: 'Māo xǐhuān shuìjiào.', zhuyin: 'ㄇㄠ ㄒㄧˇ ㄏㄨㄢ ㄕㄨㄟˋ ㄐㄧㄠˋ。', meaning: 'Cats like to sleep.' },
+          },
+          {
+            id: '2', word: '狗', pinyin: 'gǒu', zhuyin: 'ㄍㄡˇ', meaning: 'Dog', partOfSpeech: 'n.',
+            illustrationUrl: require('../assets/images/illustration-dog.png'),
+            audioUrl: require('../assets/audio/02 CN_Dog.MP3'),
+            cardColor: '#fef08a', tags: ['Mammals'],
+            exampleSentence1: { chinese: '我有一只狗。', pinyin: 'Wǒ yǒu yī zhī gǒu.', zhuyin: 'ㄨㄛˇ ㄧㄡˇ ㄧ ㄓ ㄍㄡˇ。', meaning: 'I have a dog.' },
+          },
+          {
+            id: '3', word: '鸡', pinyin: 'jī', zhuyin: 'ㄐㄧ', meaning: 'Chicken', partOfSpeech: 'n.',
+            illustrationUrl: require('../assets/images/illustration-chicken.png'),
+            audioUrl: require('../assets/audio/03 CN_Chicken.MP3'),
+            cardColor: '#7dd3fc', tags: ['Birds'],
+            exampleSentence1: { chinese: '今天我们吃鸡。', pinyin: 'Jīntiān wǒmen chī jī.', zhuyin: 'ㄐㄧㄣ ㄊㄧㄢ ㄨㄛˇ ㄇㄣ ㄔ ㄐㄧ。', meaning: 'Today we eat chicken.' },
+          },
+          {
+            id: '4', word: '猪', pinyin: 'zhū', zhuyin: 'ㄓㄨ', meaning: 'Pig', partOfSpeech: 'n.',
+            illustrationUrl: require('../assets/images/illustration-pig.png'),
+            audioUrl: require('../assets/audio/04 CN_Pig.MP3'),
+            cardColor: '#f472b6', tags: ['Mammals'],
+            exampleSentence1: { chinese: '那只猪很胖。', pinyin: 'Nà zhī zhū hěn pàng.', zhuyin: 'ㄋㄚˋ ㄓ ㄓㄨ ㄏㄣˇ ㄆㄤˋ。', meaning: 'That pig is very fat.' },
+          },
+          {
+            id: '5', word: '牛', pinyin: 'niú', zhuyin: 'ㄋㄧㄡˊ', meaning: 'Cow', partOfSpeech: 'n.',
+            illustrationUrl: require('../assets/images/illustration-cow.png'),
+            audioUrl: require('../assets/audio/05 CN_Cow.MP3'),
+            cardColor: '#2dd4bf', tags: ['Mammals'],
+            exampleSentence1: { chinese: '这头牛很大。', pinyin: 'Zhè tóu niú hěn dà.', zhuyin: 'ㄓㄜˋ ㄊㄡˊ ㄋㄧㄡˊ ㄏㄣˇ ㄉㄚˋ。', meaning: 'This cow is very big.' },
+            exampleSentence2: { chinese: '牛奶很好喝。', pinyin: 'Niúnǎi hěn hǎo hē.', zhuyin: 'ㄋㄧㄡˊ ㄋㄞˇ ㄏㄣˇ ㄏㄠˇ ㄏㄜ。', meaning: 'Milk is very tasty.' },
+          },
+          { id: '6',  word: '鸟',   pinyin: 'niǎo',   zhuyin: 'ㄋㄧㄠˇ', meaning: 'Bird',  partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-bird.png'),    audioUrl: require('../assets/audio/06 CN_Bird.MP3'),    cardColor: '#ce9c89', tags: ['Birds'] },
+          { id: '7',  word: '鱼',   pinyin: 'yú',     zhuyin: 'ㄩˊ',     meaning: 'Fish',  partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-fish.png'),    audioUrl: require('../assets/audio/07 CN_Fish.MP3'),    cardColor: '#7dd3fc', tags: ['Aquatic'] },
+          { id: '8',  word: '马',   pinyin: 'mǎ',     zhuyin: 'ㄇㄚˇ',   meaning: 'Horse', partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-horse.png'),   audioUrl: require('../assets/audio/08 CN_Horse.MP3'),   cardColor: '#ce9c89', tags: ['Mammals'] },
+          { id: '9',  word: '老鼠', pinyin: 'lǎoshǔ', zhuyin: 'ㄌㄠˇ ㄕㄨˇ', meaning: 'Mouse', partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-mouse.png'), audioUrl: require('../assets/audio/09 CN_Mouse.MP3'),   cardColor: '#262626', tags: ['Mammals'] },
+          { id: '10', word: '老虎', pinyin: 'lǎohǔ',  zhuyin: 'ㄌㄠˇ ㄏㄨˇ', meaning: 'Tiger', partOfSpeech: 'n.', illustrationUrl: require('../assets/images/illustration-tiger.png'),  audioUrl: require('../assets/audio/10 CN_Tiger.MP3'),   cardColor: '#312e81', tags: ['Mammals'] },
         ],
       },
       {
@@ -119,7 +161,7 @@ export const DECK_DATA: Record<string, DeckMeta> = {
       {
         id: 'lv3', level: 3, cardCount: 10,
         thumbnail: require('../assets/images/illustration-dog.png'),
-        energyCost: 1, isLocked: true, isPremium: false,
+        energyCost: 1, isLocked: true, isPremium: true,
         cards: [],
       },
       {
@@ -158,7 +200,7 @@ export const DECK_DATA: Record<string, DeckMeta> = {
       {
         id: 'lv3', level: 3, cardCount: 10,
         thumbnail: require('../assets/images/illustration-pineapple.png'),
-        energyCost: 1, isLocked: true, isPremium: false,
+        energyCost: 1, isLocked: true, isPremium: true,
         cards: [],
       },
       {
