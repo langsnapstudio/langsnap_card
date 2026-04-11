@@ -5,6 +5,7 @@ import {
   Dimensions,
   Easing,
   Image,
+  Modal,
   PanResponder,
   Pressable,
   StatusBar,
@@ -17,7 +18,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { getReviewSession, setReviewSummary } from '@/constants/review-store';
 import { cardTextColor } from '@/constants/mock-packs';
+import type { ExampleSentence } from '@/constants/mock-packs';
 import { saveSRSResults } from '@/constants/srs-store';
+import { useAuth } from '@/lib/auth';
 
 // ── Layout ────────────────────────────────────────────────────────────────────
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
@@ -42,9 +45,51 @@ const FRONT_LEFT = CARD_LEFT + CARD_W * (1 - DEPTH[0].scale) / 2;
 const REL_MID    = DEPTH[1].scale / DEPTH[0].scale;
 const REL_BACK   = DEPTH[2].scale / DEPTH[0].scale;
 
+// ── Example sentence block ────────────────────────────────────────────────────
+function ExampleBlock({ ex, txtColor, mutedTxt, isZhuyin }: {
+  ex: ExampleSentence; txtColor: string; mutedTxt: string; isZhuyin: boolean;
+}) {
+  const romaji = isZhuyin && ex.zhuyin ? ex.zhuyin : ex.pinyin;
+  return (
+    <View style={exStyles.block}>
+      <Text style={[exStyles.chinese, { color: txtColor }]}>{ex.chinese}</Text>
+      {!!romaji && <Text style={[exStyles.romaji, { color: mutedTxt }]}>{romaji}</Text>}
+      <Text style={[exStyles.meaning, { color: mutedTxt }]}>{ex.meaning}</Text>
+    </View>
+  );
+}
+const exStyles = StyleSheet.create({
+  block:   { marginBottom: 8 },
+  chinese: { fontSize: 14, fontFamily: 'Volte-Semibold', lineHeight: 20 },
+  romaji:  { fontSize: 13, fontFamily: 'Volte-Medium',   lineHeight: 19 },
+  meaning: { fontSize: 13, fontFamily: 'Volte',          lineHeight: 19 },
+});
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function ReviewFlashcardScreen() {
   const router  = useRouter();
+  const { profile } = useAuth();
+  const isTaiwan    = profile?.target_language === 'taiwan';
+  const [showZhuyin, setShowZhuyin] = useState(profile?.reading_system === 'zhuyin');
+  const isZhuyin = isTaiwan && showZhuyin;
+
+  const [showSettings,  setShowSettings]  = useState(false);
+  const settingsSlide = useRef(new Animated.Value(300)).current;
+  const settingsFade  = useRef(new Animated.Value(0)).current;
+
+  function openSettings() {
+    setShowSettings(true);
+    Animated.parallel([
+      Animated.timing(settingsFade,  { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.spring(settingsSlide, { toValue: 0, tension: 65, friction: 11, useNativeDriver: true }),
+    ]).start();
+  }
+  function closeSettings() {
+    Animated.parallel([
+      Animated.timing(settingsFade,  { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(settingsSlide, { toValue: 300, duration: 220, useNativeDriver: true }),
+    ]).start(() => setShowSettings(false));
+  }
   const session = getReviewSession();
   const config  = session?.config;
 
@@ -417,15 +462,45 @@ export default function ReviewFlashcardScreen() {
             transform: [{ perspective: 1200 }, { rotateY: slotBackRotY[slotIdx] }],
             alignItems: 'flex-start',
             justifyContent: 'flex-start',
-            padding: 24,
+            padding: 22,
           }]}>
+            {/* Illustration — top right */}
             <Image source={card.illustrationUrl as any} style={styles.backIllustration} resizeMode="contain" />
-            <Text style={[styles.backWord,   { color: txtColor }]}>{card.word}</Text>
-            <Text style={[styles.backPinyin, { color: mutedTxt }]}>{card.pinyin}</Text>
-            <View style={[styles.posPill, { backgroundColor: pillBg, marginTop: 8 }]}>
-              <Text style={[styles.posText, { color: mutedTxt }]}>{card.partOfSpeech}</Text>
+
+            {/* Word */}
+            <Text style={[styles.backWord, { color: txtColor }]}>{card.word}</Text>
+
+            {/* Pinyin or Zhuyin */}
+            <Text style={[styles.backRomaji, { color: mutedTxt }]}>
+              {isZhuyin && card.zhuyin ? card.zhuyin : card.pinyin}
+            </Text>
+
+            {/* Part of speech + tags inline */}
+            <View style={[styles.tagsRow, { marginTop: 6 }]}>
+              <View style={[styles.posPill, { backgroundColor: pillBg }]}>
+                <Text style={[styles.posText, { color: mutedTxt }]}>{card.partOfSpeech}</Text>
+              </View>
+              {card.tags?.map(tag => (
+                <View key={tag} style={[styles.tagPill, { backgroundColor: pillBg }]}>
+                  <Text style={[styles.tagText, { color: mutedTxt }]}>{tag}</Text>
+                </View>
+              ))}
             </View>
+
+            {/* Meaning */}
             <Text style={[styles.backMeaning, { color: txtColor }]}>{card.meaning}</Text>
+
+            {/* Example sentences */}
+            {(card.exampleSentence1 || card.exampleSentence2) && (
+              <View style={[styles.divider, { backgroundColor: mutedTxt }]} />
+            )}
+            {card.exampleSentence1 && (
+              <ExampleBlock ex={card.exampleSentence1} txtColor={txtColor} mutedTxt={mutedTxt} isZhuyin={isZhuyin} />
+            )}
+            {card.exampleSentence2 && (
+              <ExampleBlock ex={card.exampleSentence2} txtColor={txtColor} mutedTxt={mutedTxt} isZhuyin={isZhuyin} />
+            )}
+
             {!isAutoplay && (
               <Text style={[styles.tapHint, { color: mutedTxt, alignSelf: 'center' }]}>Tap to flip back</Text>
             )}
@@ -495,9 +570,48 @@ export default function ReviewFlashcardScreen() {
             <Ionicons name="exit-outline" size={26} color="white" style={{ transform: [{ scaleX: -1 }] }} />
           </TouchableOpacity>
           <Text style={styles.navTitle}>Review</Text>
-          <View style={{ width: 26 }} />
+          <TouchableOpacity hitSlop={12} onPress={openSettings}>
+            <Ionicons name="settings-outline" size={24} color="white" />
+          </TouchableOpacity>
         </View>
       </View>
+
+      {/* Settings sheet */}
+      {showSettings && (
+        <Modal transparent animationType="none" visible={showSettings} onRequestClose={closeSettings}>
+          <Animated.View style={[styles.settingsOverlay, { opacity: settingsFade }]}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={closeSettings} />
+          </Animated.View>
+          <Animated.View style={[styles.settingsSheet, { transform: [{ translateY: settingsSlide }] }]}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Settings</Text>
+
+            {isTaiwan && (
+              <View style={styles.settingRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.settingLabel}>Reading system</Text>
+                </View>
+                <View style={styles.romajiToggleGroup}>
+                  <TouchableOpacity
+                    style={[styles.romajiToggleBtn, !showZhuyin && styles.romajiToggleBtnActive]}
+                    onPress={() => setShowZhuyin(false)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.romajiToggleBtnText, !showZhuyin && styles.romajiToggleBtnTextActive]}>Pinyin 拼音</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.romajiToggleBtn, showZhuyin && styles.romajiToggleBtnActive]}
+                    onPress={() => setShowZhuyin(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.romajiToggleBtnText, showZhuyin && styles.romajiToggleBtnTextActive]}>Zhuyin 注音</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </Animated.View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -520,12 +634,34 @@ const styles = StyleSheet.create({
   wordText:        { fontSize: 48, fontFamily: 'Volte-Semibold' },
   tapHint:         { position: 'absolute', bottom: 20, fontSize: 13, fontFamily: 'Volte-Semibold' },
   audioBtn:        { position: 'absolute', bottom: 16, right: 16 },
-  backIllustration:{ position: 'absolute', top: 20, right: 20, width: 72, height: 72 },
-  backWord:        { fontSize: 36, fontFamily: 'Volte-Semibold', marginBottom: 4 },
-  backPinyin:      { fontSize: 16, fontFamily: 'Volte-Semibold' },
-  backMeaning:     { fontSize: 28, fontFamily: 'Volte-Semibold', marginTop: 'auto' as any, marginBottom: 8 },
-  posPill:         { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
-  posText:         { fontSize: 13, fontFamily: 'Volte-Semibold' },
+  backIllustration: { position: 'absolute', top: 18, right: 18, width: 60, height: 60 },
+  backWord:         { fontSize: 32, fontFamily: 'Volte-Semibold', marginBottom: 2, marginRight: 70 },
+  backRomaji: { fontSize: 14, fontFamily: 'Volte-Semibold', marginBottom: 2 },
+
+  settingsOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)' },
+  settingsSheet: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: 24, paddingBottom: 40,
+  },
+  sheetHandle:  { width: 40, height: 4, backgroundColor: '#D1D5DB', borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 20 },
+  sheetTitle:   { fontSize: 18, fontFamily: 'Volte-Semibold', color: '#262626', marginBottom: 24 },
+  settingRow:   { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 8, marginBottom: 16 },
+  settingLabel: { fontSize: 16, fontFamily: 'Volte-Semibold', color: '#262626', marginBottom: 4 },
+  settingDesc:  { fontSize: 13, fontFamily: 'Volte', color: '#9097A3' },
+
+  romajiToggleGroup:         { flexDirection: 'row', borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden' },
+  romajiToggleBtn:           { paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#F9FAFB' },
+  romajiToggleBtnActive:     { backgroundColor: BRAND_PURPLE },
+  romajiToggleBtnText:       { fontSize: 14, fontFamily: 'Volte-Semibold', color: '#6B7280' },
+  romajiToggleBtnTextActive: { color: '#FFFFFF' },
+  backMeaning:      { fontSize: 22, fontFamily: 'Volte-Semibold', marginTop: 40, marginBottom: 2 },
+  posPill:          { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 },
+  posText:          { fontSize: 12, fontFamily: 'Volte-Semibold' },
+  divider:          { height: 1, alignSelf: 'stretch', opacity: 0.3, marginVertical: 10 },
+  tagsRow:          { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  tagPill:          { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  tagText:          { fontSize: 11, fontFamily: 'Volte-Semibold' },
 
   // Swipe feedback badges — positioned above card stack in purple area
   swipeBadge: {

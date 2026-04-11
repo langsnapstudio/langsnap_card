@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -10,18 +9,19 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
+import { ALL_LANGUAGES } from '@/constants/languages';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const BRAND_PURPLE    = '#7D69AB';
 const BG_CREAM        = '#F8F5EF';
 const TEXT_DARK       = '#262626';
 const BORDER_DEFAULT  = '#E5E5E5';
-const BORDER_SELECTED = '#4B6FD0';
+const BORDER_SELECTED = BRAND_PURPLE;
 
-const LANGUAGES: { id: string; label: string; flag: any }[] = [
-  { id: 'mainland', label: 'Mandarin Chinese (Mainland)', flag: require('@/assets/images/flag-mainland.png') },
-  { id: 'taiwan',   label: 'Mandarin Chinese (Taiwan)',   flag: require('@/assets/images/flag-taiwan.png') },
-];
+// Only Mandarin variants are available for onboarding (others are Phase 2)
+const ONBOARDING_LANGUAGES = ALL_LANGUAGES.filter(l =>
+  l.id === 'mainland' || l.id === 'taiwan'
+);
 
 // ── Screen ─────────────────────────────────────────────────────────────────────
 export default function LanguageScreen() {
@@ -55,7 +55,7 @@ export default function LanguageScreen() {
         <Text style={styles.heading}>What language do you want to learn?</Text>
 
         <View style={styles.optionList}>
-          {LANGUAGES.map(lang => {
+          {ONBOARDING_LANGUAGES.map(lang => {
             const isSelected = selected === lang.id;
             return (
               <TouchableOpacity
@@ -64,9 +64,7 @@ export default function LanguageScreen() {
                 onPress={() => setSelected(lang.id)}
                 activeOpacity={0.75}
               >
-                {lang.flag && (
-                  <Image source={lang.flag} style={styles.optionFlag} />
-                )}
+                <Text style={styles.optionEmoji}>{lang.emoji}</Text>
                 <Text style={styles.optionLabel}>{lang.label}</Text>
               </TouchableOpacity>
             );
@@ -108,7 +106,7 @@ const styles = StyleSheet.create({
   option: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12, borderWidth: 1,
+    borderRadius: 12, borderWidth: 2,
     borderColor: BORDER_DEFAULT,
     paddingHorizontal: 16, paddingVertical: 18,
   },
@@ -116,7 +114,7 @@ const styles = StyleSheet.create({
     borderColor: BORDER_SELECTED,
   },
 
-  optionFlag:  { width: 28, height: 28, marginRight: 14, borderRadius: 4 },
+  optionEmoji: { fontSize: 28, marginRight: 14 },
   optionLabel: { fontSize: 16, color: TEXT_DARK, fontFamily: 'Volte-Medium', flex: 1 },
 
   footer: { paddingHorizontal: 24, paddingBottom: 36 },

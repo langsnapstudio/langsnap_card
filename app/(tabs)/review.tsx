@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Image,
@@ -23,7 +23,10 @@ const EMOJI = {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DECK_DATA } from '@/constants/mock-packs';
+import UpgradeModal from '@/components/UpgradeModal';
+import { DEV_IS_PREMIUM_KEY } from '@/constants/storage-keys';
 import {
   setReviewSession,
   DEFAULT_REVIEW_CONFIG,
@@ -57,10 +60,14 @@ function ReviewSetupSheet({
   visible,
   onClose,
   onStart,
+  isPremium,
+  onUpgrade,
 }: {
   visible: boolean;
   onClose: () => void;
   onStart: (config: ReviewSessionConfig) => void;
+  isPremium: boolean;
+  onUpgrade: () => void;
 }) {
   const slideAnim = useRef(new Animated.Value(600)).current;
   const fadeAnim  = useRef(new Animated.Value(0)).current;
@@ -124,13 +131,18 @@ function ReviewSetupSheet({
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[sheet.modeBtn, mode === 'autoplay' && sheet.modeBtnActive]}
+              style={[sheet.modeBtn, mode === 'autoplay' && sheet.modeBtnActive, !isPremium && sheet.modeBtnLocked]}
               activeOpacity={0.8}
-              onPress={() => setMode('autoplay')}
+              onPress={() => isPremium ? setMode('autoplay') : onUpgrade()}
             >
               <Image source={EMOJI.playButton} style={sheet.modeEmoji} resizeMode="contain" />
               <Text style={[sheet.modeBtnText, mode === 'autoplay' && sheet.modeBtnTextActive]}>Auto-play</Text>
               <Text style={[sheet.modeBtnSub, mode === 'autoplay' && sheet.modeBtnSubActive]}>ASMR style</Text>
+              {!isPremium && (
+                <View style={sheet.lockBadge}>
+                  <Text style={sheet.lockBadgeText}>👑</Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -241,7 +253,12 @@ function ReviewSetupSheet({
 // ── Review Screen ──────────────────────────────────────────────────────────────
 export default function ReviewScreen() {
   const router = useRouter();
-  const [sheetVisible, setSheetVisible] = useState(false);
+  const [sheetVisible,    setSheetVisible]    = useState(false);
+  const [upgradeVisible,  setUpgradeVisible]  = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
+  useEffect(() => {
+    AsyncStorage.getItem(DEV_IS_PREMIUM_KEY).then(val => setIsPremium(val === 'true'));
+  }, []);
 
   const handleReviewStart = (config: ReviewSessionConfig) => {
     setSheetVisible(false);
@@ -352,6 +369,12 @@ export default function ReviewScreen() {
         visible={sheetVisible}
         onClose={() => setSheetVisible(false)}
         onStart={handleReviewStart}
+        isPremium={isPremium}
+        onUpgrade={() => { setSheetVisible(false); setUpgradeVisible(true); }}
+      />
+      <UpgradeModal
+        visible={upgradeVisible}
+        onClose={() => setUpgradeVisible(false)}
       />
     </View>
   );
@@ -503,8 +526,11 @@ const sheet = StyleSheet.create({
   },
   modeBtnText: { fontSize: 15, color: TEXT_DARK, fontFamily: 'Volte-Semibold' },
   modeBtnTextActive: { color: WHITE },
-  modeBtnSub: { fontSize: 12, color: TEXT_MUTED, fontFamily: 'Volte' },
+  modeBtnSub:       { fontSize: 12, color: TEXT_MUTED, fontFamily: 'Volte' },
   modeBtnSubActive: { color: 'rgba(255,255,255,0.7)' },
+  modeBtnLocked:    { opacity: 0.5 },
+  lockBadge:        { position: 'absolute', top: 8, right: 8, backgroundColor: '#FEF3C7', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 },
+  lockBadgeText:    { fontSize: 12 },
 
   // Chip pills
   chipRow: { flexDirection: 'row', gap: 10 },

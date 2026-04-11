@@ -13,9 +13,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DECK_DATA } from '@/constants/mock-packs';
 import type { PackMeta, DeckMeta } from '@/constants/mock-packs';
 import { setCurrentPack } from '@/constants/pack-store';
+import UpgradeModal from '@/components/UpgradeModal';
+
+const ENERGY_EXPLAINER_KEY = 'hasSeenEnergyExplainer';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const BRAND_PURPLE = '#7D69AB';
@@ -112,6 +116,102 @@ function RedemptionSheet({
   );
 }
 
+// ── Energy Explainer Sheet ─────────────────────────────────────────────────────
+function EnergyExplainerSheet({
+  visible, onDismiss,
+}: {
+  visible: boolean; onDismiss: () => void;
+}) {
+  const slideAnim = useRef(new Animated.Value(500)).current;
+  const fadeAnim  = useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.timing(fadeAnim,  { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.spring(slideAnim, { toValue: 0, tension: 70, friction: 12, useNativeDriver: true }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(fadeAnim,  { toValue: 0, duration: 180, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: 500, duration: 200, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [visible]);
+
+  return (
+    <Modal visible={visible} transparent animationType="none">
+      <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} />
+      </Animated.View>
+
+      <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
+        {/* Icon */}
+        <View style={exStyles.iconWrap}>
+          <Text style={exStyles.iconEmoji}>⚡</Text>
+        </View>
+
+        <Text style={exStyles.title}>How energy works</Text>
+        <Text style={exStyles.subtitle}>
+          Energy is needed to open new packs and start learning.
+        </Text>
+
+        {/* Three bullet rows */}
+        <View style={exStyles.rows}>
+          <View style={exStyles.row}>
+            <View style={exStyles.rowIcon}>
+              <Ionicons name="time-outline" size={20} color={BRAND_PURPLE} />
+            </View>
+            <View style={exStyles.rowText}>
+              <Text style={exStyles.rowTitle}>Daily refill</Text>
+              <Text style={exStyles.rowDesc}>Your energy refills automatically every 24 hours.</Text>
+            </View>
+          </View>
+
+          <View style={exStyles.row}>
+            <View style={exStyles.rowIcon}>
+              <Ionicons name="trophy-outline" size={20} color={BRAND_PURPLE} />
+            </View>
+            <View style={exStyles.rowText}>
+              <Text style={exStyles.rowTitle}>Earn more from challenges</Text>
+              <Text style={exStyles.rowDesc}>Complete challenges on your profile to earn bonus energy with no expiry.</Text>
+            </View>
+          </View>
+
+          <View style={exStyles.row}>
+            <View style={exStyles.rowIcon}>
+              <Ionicons name="flash-outline" size={20} color={BRAND_PURPLE} />
+            </View>
+            <View style={exStyles.rowText}>
+              <Text style={exStyles.rowTitle}>Free packs cost nothing</Text>
+              <Text style={exStyles.rowDesc}>Some packs are free — no energy needed to open them.</Text>
+            </View>
+          </View>
+        </View>
+
+        <TouchableOpacity style={exStyles.btn} onPress={onDismiss} activeOpacity={0.85}>
+          <Text style={exStyles.btnText}>Got it!</Text>
+        </TouchableOpacity>
+      </Animated.View>
+    </Modal>
+  );
+}
+
+const exStyles = StyleSheet.create({
+  iconWrap:  { alignSelf: 'center', width: 64, height: 64, borderRadius: 32, backgroundColor: '#EDE9F5', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  iconEmoji: { fontSize: 30 },
+  title:     { fontSize: 20, fontFamily: 'Volte-Semibold', color: TEXT_DARK, textAlign: 'center', marginBottom: 8 },
+  subtitle:  { fontSize: 14, fontFamily: 'Volte', color: TEXT_MUTED, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
+  rows:      { gap: 16, marginBottom: 28 },
+  row:       { flexDirection: 'row', gap: 14, alignItems: 'flex-start' },
+  rowIcon:   { width: 40, height: 40, borderRadius: 20, backgroundColor: '#EDE9F5', alignItems: 'center', justifyContent: 'center' },
+  rowText:   { flex: 1 },
+  rowTitle:  { fontSize: 14, fontFamily: 'Volte-Semibold', color: TEXT_DARK, marginBottom: 2 },
+  rowDesc:   { fontSize: 13, fontFamily: 'Volte', color: TEXT_MUTED, lineHeight: 18 },
+  btn:       { height: 52, borderRadius: 14, backgroundColor: BRAND_PURPLE, alignItems: 'center', justifyContent: 'center' },
+  btnText:   { fontSize: 16, fontFamily: 'Volte-Semibold', color: WHITE },
+});
+
 // ── Deck Detail Screen ─────────────────────────────────────────────────────────
 export default function DeckDetailScreen() {
   const router = useRouter();
@@ -119,34 +219,58 @@ export default function DeckDetailScreen() {
 
   const deck: DeckMeta = DECK_DATA[deckId ?? ''] ?? DEFAULT_DECK;
 
-  const [selectedPack, setSelectedPack] = useState<PackMeta | null>(null);
+  const [selectedPack,      setSelectedPack]      = useState<PackMeta | null>(null);
+  const [upgradeVisible,    setUpgradeVisible]    = useState(false);
+  const [explainerVisible,  setExplainerVisible]  = useState(false);
+  const pendingPackRef = useRef<PackMeta | null>(null);
 
   const handlePackPress = (pack: PackMeta) => {
-    if (pack.isLocked) return;
+    if (pack.isLocked && !pack.isPremium) return; // progression locked — no action
+    if (pack.isPremium) { setUpgradeVisible(true); return; } // premium — open upgrade
     setSelectedPack(pack);
   };
 
-  const handleConfirm = () => {
-    if (!selectedPack) return;
-    // Store pack data before navigating so pack-opening can read it without
-    // serialising the full card array through navigation params.
+  const navigateToPack = (pack: PackMeta) => {
     setCurrentPack({
-      pack:         selectedPack,
+      pack,
       packBagImage: deck.packBagImage,
       deckTitle:    deck.title,
       deckId:       deckId ?? '',
     });
-    setSelectedPack(null);
     router.push({
       pathname: '/learn/pack-opening',
       params: {
         deckId,
-        packId:    selectedPack.id,
-        packLevel: String(selectedPack.level),
-        cardCount: String(selectedPack.cardCount),
+        packId:    pack.id,
+        packLevel: String(pack.level),
+        cardCount: String(pack.cardCount),
         deckTitle: deck.title,
       },
     });
+  };
+
+  const handleConfirm = async () => {
+    if (!selectedPack) return;
+    const pack = selectedPack;
+    setSelectedPack(null);
+
+    const seen = await AsyncStorage.getItem(ENERGY_EXPLAINER_KEY);
+    if (!seen) {
+      pendingPackRef.current = pack;
+      setExplainerVisible(true);
+    } else {
+      navigateToPack(pack);
+    }
+  };
+
+  const handleExplainerDismiss = async () => {
+    await AsyncStorage.setItem(ENERGY_EXPLAINER_KEY, 'true');
+    setExplainerVisible(false);
+    if (pendingPackRef.current) {
+      const pack = pendingPackRef.current;
+      pendingPackRef.current = null;
+      navigateToPack(pack);
+    }
   };
 
   return (
@@ -171,34 +295,44 @@ export default function DeckDetailScreen() {
 
         {/* Pack list */}
         <View style={styles.packList}>
-          {deck.packs.map(pack => (
-            <TouchableOpacity
-              key={pack.id}
-              style={[styles.packRow, pack.isLocked && styles.packRowLocked]}
-              onPress={() => handlePackPress(pack)}
-              activeOpacity={pack.isLocked ? 1 : 0.8}
-            >
-              <Image source={pack.thumbnail} style={styles.packThumb} resizeMode="contain" />
-              <View style={styles.packInfo}>
-                <Text style={[styles.packLevel, pack.isLocked && styles.packTextLocked]}>
-                  Lv. {pack.level}
-                </Text>
-                <Text style={styles.packCards}>{pack.cardCount} cards</Text>
-              </View>
+          {deck.packs.map(pack => {
+            const progressionLocked = pack.isLocked && !pack.isPremium;
+            const premiumLocked     = pack.isPremium;
+            const dimmed            = progressionLocked;
 
-              {/* Right side indicator */}
-              {pack.isLocked ? (
-                <View style={styles.lockCircle}>
-                  <Ionicons name="lock-closed" size={16} color={TEXT_MUTED} />
+            return (
+              <TouchableOpacity
+                key={pack.id}
+                style={[styles.packRow, dimmed && styles.packRowLocked]}
+                onPress={() => handlePackPress(pack)}
+                activeOpacity={progressionLocked ? 1 : 0.8}
+              >
+                <Image source={pack.thumbnail} style={styles.packThumb} resizeMode="contain" />
+                <View style={styles.packInfo}>
+                  <Text style={[styles.packLevel, dimmed && styles.packTextLocked]}>
+                    Lv. {pack.level}
+                  </Text>
+                  <Text style={styles.packCards}>{pack.cardCount} cards</Text>
                 </View>
-              ) : pack.energyCost > 0 ? (
-                <View style={styles.energyTag}>
-                  <Ionicons name="flash" size={13} color="#F5C842" />
-                  <Text style={styles.energyTagText}>{pack.energyCost}</Text>
-                </View>
-              ) : null}
-            </TouchableOpacity>
-          ))}
+
+                {/* Right side indicator */}
+                {progressionLocked ? (
+                  <View style={styles.lockCircle}>
+                    <Ionicons name="lock-closed" size={16} color={TEXT_MUTED} />
+                  </View>
+                ) : premiumLocked ? (
+                  <View style={styles.crownCircle}>
+                    <Text style={styles.crownEmoji}>👑</Text>
+                  </View>
+                ) : pack.energyCost > 0 ? (
+                  <View style={styles.energyTag}>
+                    <Ionicons name="flash" size={13} color="#F5C842" />
+                    <Text style={styles.energyTagText}>{pack.energyCost}</Text>
+                  </View>
+                ) : null}
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
       </ScrollView>
@@ -209,6 +343,14 @@ export default function DeckDetailScreen() {
         deckTitle={deck.title}
         onCancel={() => setSelectedPack(null)}
         onConfirm={handleConfirm}
+      />
+      <EnergyExplainerSheet
+        visible={explainerVisible}
+        onDismiss={handleExplainerDismiss}
+      />
+      <UpgradeModal
+        visible={upgradeVisible}
+        onClose={() => setUpgradeVisible(false)}
       />
     </SafeAreaView>
   );
@@ -259,6 +401,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0EDE8',
     alignItems: 'center', justifyContent: 'center',
   },
+  crownCircle: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  crownEmoji: { fontSize: 18 },
   energyTag: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -4,6 +4,7 @@ import * as WebBrowser from 'expo-web-browser';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import type { Session, User } from '@supabase/supabase-js';
+import { DEV_FORCE_ONBOARDING_KEY, WELCOME_SHOWN_KEY } from '@/constants/storage-keys';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -22,6 +23,8 @@ type AuthContextType = {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
+  devForceOnboarding: boolean;
+  clearDevForce: () => void;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -32,16 +35,17 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // ── Provider ───────────────────────────────────────────────────────────────────
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [session, setSession]               = useState<Session | null>(null);
+  const [profile, setProfile]               = useState<Profile | null>(null);
+  const [loading, setLoading]               = useState(true);
+  const [devForceOnboarding, setDevForce]   = useState(false);
 
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
     setProfile(data ?? null);
   };
 
@@ -49,17 +53,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (session?.user?.id) await fetchProfile(session.user.id);
   };
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user?.id) fetchProfile(session.user.id);
-      setLoading(false);
-    });
+  const clearDevForce = () => {
+    AsyncStorage.removeItem(DEV_FORCE_ONBOARDING_KEY);
+    setDevForce(false);
+  };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+  useEffect(() => {
+    // ── Initial load — keep loading=true until everything is ready ──────────
+    const init = async () => {
+      const [{ data: { session } }, devFlag] = await Promise.all([
+        supabase.auth.getSession(),
+        AsyncStorage.getItem(DEV_FORCE_ONBOARDING_KEY),
+      ]);
+
       setSession(session);
-      if (session?.user?.id) fetchProfile(session.user.id);
-      else setProfile(null);
+      setDevForce(devFlag === 'true');
+
+      // Await profile so nav guard never sees a half-loaded state
+      if (session?.user?.id) await fetchProfile(session.user.id);
+
+      setLoading(false);
+    };
+
+    init();
+
+    // ── Auth state changes (sign-in / sign-out after initial load) ───────────
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setSession(session);
+      if (session?.user?.id) {
+        // Re-read dev flag on sign-in so a fresh devReset is picked up
+        const devFlag = await AsyncStorage.getItem(DEV_FORCE_ONBOARDING_KEY);
+        setDevForce(devFlag === 'true');
+        await fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -94,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const hashIndex = result.url.indexOf('#');
         if (hashIndex !== -1) {
           const params = new URLSearchParams(result.url.slice(hashIndex + 1));
-          const accessToken = params.get('access_token');
+          const accessToken  = params.get('access_token');
           const refreshToken = params.get('refresh_token');
           if (accessToken && refreshToken) {
             await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
@@ -107,7 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    await AsyncStorage.removeItem('langsnap:welcome_shown');
+    await AsyncStorage.removeItem(WELCOME_SHOWN_KEY);
     await supabase.auth.signOut();
     setProfile(null);
   };
@@ -118,6 +146,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       profile,
       loading,
+      devForceOnboarding,
+      clearDevForce,
       signInWithGoogle,
       signOut,
       refreshProfile,

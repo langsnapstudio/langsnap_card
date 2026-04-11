@@ -20,6 +20,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { getCurrentPack } from '@/constants/pack-store';
 import { cardTextColor } from '@/constants/mock-packs';
+import type { ExampleSentence } from '@/constants/mock-packs';
+import { useAuth } from '@/lib/auth';
 
 const AUTOPLAY_KEY = 'langsnap:autoplay_audio';
 
@@ -58,10 +60,34 @@ const REL_BACK = DEPTH[2].scale / DEPTH[0].scale;
 
 const FALLBACK_BAG = require('@/assets/images/pack_bag_animals.png');
 
+// ── Example sentence block ────────────────────────────────────────────────────
+function ExampleBlock({ ex, txtColor, mutedTxt, isZhuyin }: {
+  ex: ExampleSentence; txtColor: string; mutedTxt: string; isZhuyin: boolean;
+}) {
+  const romaji = isZhuyin && ex.zhuyin ? ex.zhuyin : ex.pinyin;
+  return (
+    <View style={exStyles.block}>
+      <Text style={[exStyles.chinese, { color: txtColor }]}>{ex.chinese}</Text>
+      {!!romaji && <Text style={[exStyles.romaji, { color: mutedTxt }]}>{romaji}</Text>}
+      <Text style={[exStyles.meaning, { color: mutedTxt }]}>{ex.meaning}</Text>
+    </View>
+  );
+}
+const exStyles = StyleSheet.create({
+  block:   { marginBottom: 8 },
+  chinese: { fontSize: 14, fontFamily: 'Volte-Semibold', lineHeight: 20 },
+  romaji:  { fontSize: 13, fontFamily: 'Volte-Medium',   lineHeight: 19 },
+  meaning: { fontSize: 13, fontFamily: 'Volte',          lineHeight: 19 },
+});
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function PackOpeningScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { profile } = useAuth();
+  const isTaiwan  = profile?.target_language === 'taiwan';
+  const [showZhuyin, setShowZhuyin] = useState(profile?.reading_system === 'zhuyin');
+  const isZhuyin = isTaiwan && showZhuyin;
 
   const packData   = getCurrentPack();
   const cards      = packData?.pack.cards ?? [];
@@ -424,19 +450,45 @@ export default function PackOpeningScreen() {
             transform: [{ perspective: 1200 }, { rotateY: slotBackRotY[slotIdx] }],
             alignItems: 'flex-start',
             justifyContent: 'flex-start',
-            padding: 24,
+            padding: 22,
           }]}>
-            <Image
-              source={card.illustrationUrl as any}
-              style={styles.backIllustration}
-              resizeMode="contain"
-            />
-            <Text style={[styles.backWord,   { color: txtColor }]}>{card.word}</Text>
-            <Text style={[styles.backPinyin, { color: mutedTxt }]}>{card.pinyin}</Text>
-            <View style={[styles.posPill, { backgroundColor: pillBg, marginTop: 8 }]}>
-              <Text style={[styles.posText, { color: mutedTxt }]}>{card.partOfSpeech}</Text>
+            {/* Illustration — top right */}
+            <Image source={card.illustrationUrl as any} style={styles.backIllustration} resizeMode="contain" />
+
+            {/* Word */}
+            <Text style={[styles.backWord, { color: txtColor }]}>{card.word}</Text>
+
+            {/* Pinyin or Zhuyin */}
+            <Text style={[styles.backRomaji, { color: mutedTxt }]}>
+              {isZhuyin && card.zhuyin ? card.zhuyin : card.pinyin}
+            </Text>
+
+            {/* Part of speech + tags inline */}
+            <View style={[styles.tagsRow, { marginTop: 6 }]}>
+              <View style={[styles.posPill, { backgroundColor: pillBg }]}>
+                <Text style={[styles.posText, { color: mutedTxt }]}>{card.partOfSpeech}</Text>
+              </View>
+              {card.tags?.map(tag => (
+                <View key={tag} style={[styles.tagPill, { backgroundColor: pillBg }]}>
+                  <Text style={[styles.tagText, { color: mutedTxt }]}>{tag}</Text>
+                </View>
+              ))}
             </View>
+
+            {/* Meaning */}
             <Text style={[styles.backMeaning, { color: txtColor }]}>{card.meaning}</Text>
+
+            {/* Example sentences */}
+            {(card.exampleSentence1 || card.exampleSentence2) && (
+              <View style={[styles.divider, { backgroundColor: mutedTxt }]} />
+            )}
+            {card.exampleSentence1 && (
+              <ExampleBlock ex={card.exampleSentence1} txtColor={txtColor} mutedTxt={mutedTxt} isZhuyin={isZhuyin} />
+            )}
+            {card.exampleSentence2 && (
+              <ExampleBlock ex={card.exampleSentence2} txtColor={txtColor} mutedTxt={mutedTxt} isZhuyin={isZhuyin} />
+            )}
+
             <Text style={[styles.tapHint, { color: mutedTxt, alignSelf: 'center' }]}>Tap to flip back</Text>
           </Animated.View>
         </Pressable>
@@ -534,6 +586,30 @@ export default function PackOpeningScreen() {
               />
             </View>
 
+            {isTaiwan && (
+              <View style={styles.settingRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.settingLabel}>Reading system</Text>
+                </View>
+                <View style={styles.romajiToggleGroup}>
+                  <TouchableOpacity
+                    style={[styles.romajiToggleBtn, !showZhuyin && styles.romajiToggleBtnActive]}
+                    onPress={() => setShowZhuyin(false)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.romajiToggleBtnText, !showZhuyin && styles.romajiToggleBtnTextActive]}>Pinyin 拼音</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.romajiToggleBtn, showZhuyin && styles.romajiToggleBtnActive]}
+                    onPress={() => setShowZhuyin(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.romajiToggleBtnText, showZhuyin && styles.romajiToggleBtnTextActive]}>Zhuyin 注音</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
             <TouchableOpacity style={styles.saveBtn} onPress={saveSettings} activeOpacity={0.85}>
               <Text style={styles.saveBtnText}>Save</Text>
             </TouchableOpacity>
@@ -576,20 +652,30 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: 16, right: 16,
   },
   // Back face
-  backIllustration: {
-    position: 'absolute', top: 20, right: 20,
-    width: 72, height: 72,
+  backIllustration: { position: 'absolute', top: 18, right: 18, width: 60, height: 60 },
+  backWord:    { fontSize: 32, fontFamily: 'Volte-Semibold', marginBottom: 2, marginRight: 70 },
+  backRomaji: { fontSize: 14, fontFamily: 'Volte-Semibold', marginBottom: 2 },
+
+  romajiToggleGroup: {
+    flexDirection: 'row', borderRadius: 8,
+    borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden',
   },
-  backWord:    { fontSize: 36, fontFamily: 'Volte-Semibold', marginBottom: 4 },
-  backPinyin:  { fontSize: 16, fontFamily: 'Volte-Semibold' },
-  backMeaning: { fontSize: 28, fontFamily: 'Volte-Semibold', marginTop: 'auto' as any, marginBottom: 8 },
-  posPill: {
-    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4,
+  romajiToggleBtn: {
+    paddingHorizontal: 14, paddingVertical: 8,
+    backgroundColor: '#F9FAFB',
   },
-  posText:     { fontSize: 13, fontFamily: 'Volte-Semibold' },
-  // Legacy — kept for safety but no longer used on back face
-  pinyinText:  { fontSize: 24, fontFamily: 'Volte-Semibold', marginBottom: 12 },
-  meaningText: { fontSize: 36, fontFamily: 'Volte-Semibold' },
+  romajiToggleBtnActive:     { backgroundColor: BRAND_PURPLE },
+  romajiToggleBtnText:       { fontSize: 14, fontFamily: 'Volte-Semibold', color: '#6B7280' },
+  romajiToggleBtnTextActive: { color: '#FFFFFF' },
+  backMeaning: { fontSize: 22, fontFamily: 'Volte-Semibold', marginTop: 40, marginBottom: 2 },
+  posPill:     { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 },
+  posText:     { fontSize: 12, fontFamily: 'Volte-Semibold' },
+
+  divider: { height: 1, alignSelf: 'stretch', opacity: 0.3, marginVertical: 10 },
+
+  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  tagPill: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  tagText: { fontSize: 11, fontFamily: 'Volte-Semibold' },
 
   navBar:        { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 50 },
   progressTrack: { height: 3, backgroundColor: 'rgba(255,255,255,0.25)', marginTop: 64, marginHorizontal: 16, borderRadius: 2 },
