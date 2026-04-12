@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { LANGUAGE_MAP } from '@/constants/languages';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,10 +23,11 @@ import { useAuth } from '@/lib/auth';
 const BRAND_PURPLE = '#7D69AB';
 const BG_CREAM     = '#F8F5EF';
 const TEXT_DARK    = '#262626';
-const TEXT_MUTED   = '#9097A3';
+const TEXT_MUTED   = '#525252';
 const WHITE        = '#FFFFFF';
 
-const WELCOME_SHOWN_KEY = 'langsnap:welcome_shown';
+const WELCOME_SHOWN_KEY     = 'langsnap:welcome_shown';
+const ENERGY_GUIDE_SHOWN_KEY = 'langsnap:energy_guide_shown';
 
 
 const HSK_DECKS = [
@@ -170,12 +171,70 @@ function WelcomeSheet({ visible, onClose }: { visible: boolean; onClose: () => v
   );
 }
 
+// ── Energy Guide Overlay ───────────────────────────────────────────────────────
+function EnergyGuideOverlay({ visible, onDismiss, energyCount }: {
+  visible: boolean; onDismiss: () => void; energyCount: number;
+}) {
+  const insets    = useSafeAreaInsets();
+  const fadeAnim  = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.88)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.timing(fadeAnim,  { toValue: 1, duration: 220, useNativeDriver: true }),
+        Animated.spring(scaleAnim, { toValue: 1, friction: 8, tension: 70, useNativeDriver: true }),
+      ]).start();
+    } else {
+      fadeAnim.setValue(0);
+      scaleAnim.setValue(0.88);
+    }
+  }, [visible]);
+
+  // Match topBar: paddingTop=8, badge height ~32px, paddingBottom=12
+  const badgeTop = insets.top + 8;
+  const cardTop  = badgeTop + 32 + 10; // badge bottom + gap
+
+  return (
+    <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
+      {/* Dim backdrop — tapping anywhere dismisses */}
+      <Animated.View style={[StyleSheet.absoluteFill, guideStyles.backdrop, { opacity: fadeAnim }]}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} />
+      </Animated.View>
+
+      {/* Replicated energy badge — sits above dim, non-interactive */}
+      <View style={[guideStyles.fakeBadge, { top: badgeTop, right: 20 }]}>
+        <Ionicons name="flash" size={14} color="#F5C842" />
+        <Text style={guideStyles.fakeBadgeCount}>{energyCount}</Text>
+      </View>
+
+      {/* Popup card — anchored below the badge, right-aligned */}
+      <Animated.View style={[guideStyles.card, { top: cardTop, opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
+        {/* Arrow pointing up toward badge */}
+        <View style={guideStyles.arrow} />
+
+        <View style={guideStyles.iconCircle}>
+          <Ionicons name="flash" size={28} color="#F5C842" />
+        </View>
+        <Text style={guideStyles.title}>How energy works</Text>
+        <Text style={guideStyles.subtitle}>
+          Energy is needed to open new packs and start learning.
+        </Text>
+        <TouchableOpacity style={guideStyles.btn} onPress={onDismiss} activeOpacity={0.85}>
+          <Text style={guideStyles.btnText}>Got it!</Text>
+        </TouchableOpacity>
+      </Animated.View>
+    </Modal>
+  );
+}
+
 // ── Learn Tab ─────────────────────────────────────────────────────────────────
 export default function LearnScreen() {
   const router = useRouter();
   const { profile } = useAuth();
-  const [showWelcome, setShowWelcome]   = useState(false);
-  const [showEnergy,  setShowEnergy]    = useState(false);
+  const [showWelcome,     setShowWelcome]     = useState(false);
+  const [showEnergy,      setShowEnergy]      = useState(false);
+  const [showEnergyGuide, setShowEnergyGuide] = useState(false);
   const energyCount = getTotalEnergy();
 
   const langKey  = profile?.target_language ?? 'mainland';
@@ -184,11 +243,28 @@ export default function LearnScreen() {
   useEffect(() => {
     AsyncStorage.getItem(WELCOME_SHOWN_KEY).then(val => {
       if (!val) {
-        setTimeout(() => setShowWelcome(true), 500);
         AsyncStorage.setItem(WELCOME_SHOWN_KEY, 'true');
+        setTimeout(() => setShowWelcome(true), 500);
+      } else {
+        // Welcome already seen — check if energy guide still needs to show
+        AsyncStorage.getItem(ENERGY_GUIDE_SHOWN_KEY).then(seen => {
+          if (!seen) setTimeout(() => setShowEnergyGuide(true), 400);
+        });
       }
     });
   }, []);
+
+  const handleWelcomeClose = () => {
+    setShowWelcome(false);
+    AsyncStorage.getItem(ENERGY_GUIDE_SHOWN_KEY).then(seen => {
+      if (!seen) setTimeout(() => setShowEnergyGuide(true), 350);
+    });
+  };
+
+  const handleEnergyGuideDismiss = () => {
+    setShowEnergyGuide(false);
+    AsyncStorage.setItem(ENERGY_GUIDE_SHOWN_KEY, 'true');
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -247,8 +323,9 @@ export default function LearnScreen() {
 
       </ScrollView>
 
-      <WelcomeSheet visible={showWelcome} onClose={() => setShowWelcome(false)} />
+      <WelcomeSheet visible={showWelcome} onClose={handleWelcomeClose} />
       <EnergyBottomSheet visible={showEnergy} onClose={() => setShowEnergy(false)} />
+      <EnergyGuideOverlay visible={showEnergyGuide} onDismiss={handleEnergyGuideDismiss} energyCount={energyCount} />
     </SafeAreaView>
   );
 }
@@ -370,4 +447,56 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   welcomeBtnText: { fontSize: 17, color: WHITE, fontFamily: 'Volte-Semibold' },
+});
+
+// ── Energy guide overlay styles ────────────────────────────────────────────────
+const guideStyles = StyleSheet.create({
+  backdrop: { backgroundColor: 'rgba(0,0,0,0.6)' },
+
+  // Replicated energy badge — floats above the dim
+  fakeBadge: {
+    position: 'absolute',
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: WHITE,
+    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, gap: 4,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08, shadowRadius: 6, elevation: 3,
+  },
+  fakeBadgeCount: { fontSize: 15, color: TEXT_DARK, fontFamily: 'Volte-Semibold' },
+
+  // Popup card — absolutely positioned below badge, right-aligned
+  card: {
+    position: 'absolute',
+    right: 16,
+    width: 270,
+    backgroundColor: WHITE,
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15, shadowRadius: 20, elevation: 12,
+  },
+  // Small up-pointing triangle arrow toward the badge
+  arrow: {
+    position: 'absolute', top: -8, right: 28,
+    width: 0, height: 0,
+    borderLeftWidth: 8, borderRightWidth: 8, borderBottomWidth: 8,
+    borderLeftColor: 'transparent', borderRightColor: 'transparent',
+    borderBottomColor: WHITE,
+  },
+  iconCircle: {
+    width: 60, height: 60, borderRadius: 30,
+    backgroundColor: '#EDE9F5',
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 2,
+  },
+  title:    { fontSize: 18, fontFamily: 'Volte-Semibold', color: TEXT_DARK, textAlign: 'center' },
+  subtitle: { fontSize: 13, fontFamily: 'Volte', color: TEXT_MUTED, textAlign: 'center', lineHeight: 19, marginBottom: 8 },
+  btn: {
+    width: '100%', height: 48, borderRadius: 14,
+    backgroundColor: BRAND_PURPLE,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  btnText: { fontSize: 15, fontFamily: 'Volte-Semibold', color: WHITE },
 });

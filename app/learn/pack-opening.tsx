@@ -729,7 +729,7 @@ const styles = StyleSheet.create({
   settingDesc: {
     fontSize: 13,
     fontFamily: 'Volte',
-    color: '#9097A3',
+    color: '#525252',
   },
   saveBtn: {
     backgroundColor: '#7D69AB',

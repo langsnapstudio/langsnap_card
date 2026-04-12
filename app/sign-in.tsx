@@ -10,6 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/lib/auth';
+import * as AppleAuthentication from 'expo-apple-authentication';
 
 function GoogleIcon({ size = 20 }: { size?: number }) {
   return (
@@ -154,8 +155,9 @@ function FlashcardStack() {
 
 // ── SignInScreen ───────────────────────────────────────────────────────────────
 export default function SignInScreen() {
-  const { signInWithGoogle } = useAuth();
+  const { signInWithGoogle, signInWithApple, appleAvailable } = useAuth();
   const [loadingGoogle, setLoadingGoogle] = useState(false);
+  const [loadingApple,  setLoadingApple]  = useState(false);
 
   async function handleGoogleSignIn() {
     setLoadingGoogle(true);
@@ -166,8 +168,13 @@ export default function SignInScreen() {
     }
   }
 
-  function handleAppleSignIn() {
-    // Apple Sign-In — coming soon
+  async function handleAppleSignIn() {
+    setLoadingApple(true);
+    try {
+      await signInWithApple();
+    } finally {
+      setLoadingApple(false);
+    }
   }
 
   return (
@@ -198,10 +205,14 @@ export default function SignInScreen() {
           }
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.appleButton} onPress={handleAppleSignIn} activeOpacity={0.8}>
-          <Ionicons name="logo-apple" size={22} color="#FFFFFF" />
-          <Text style={styles.appleButtonText}>Sign in with Apple</Text>
-        </TouchableOpacity>
+        {appleAvailable && (
+          <TouchableOpacity style={styles.appleButton} onPress={handleAppleSignIn} activeOpacity={0.8} disabled={loadingApple}>
+            {loadingApple
+              ? <ActivityIndicator size="small" color="#FFFFFF" />
+              : <><Ionicons name="logo-apple" size={22} color="#FFFFFF" /><Text style={styles.appleButtonText}>Sign in with Apple</Text></>
+            }
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );

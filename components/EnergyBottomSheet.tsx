@@ -18,7 +18,7 @@ const PURPLE_LIGHT = '#EDE9F5';
 const BG_CREAM     = '#F8F5EF';
 const WHITE        = '#FFFFFF';
 const TEXT_DARK    = '#262626';
-const TEXT_MUTED   = '#9097A3';
+const TEXT_MUTED   = '#525252';
 const AMBER        = '#F59E0B';
 const BORDER       = '#E8E5DF';
 
@@ -109,11 +109,11 @@ function NormalState({ energy, countdown, onClose }: {
 
       <View style={styles.energyRow}>
         {/* Time-limited energy */}
-        <View style={styles.energyTile}>
-          <View style={[styles.energyIconCircle, { backgroundColor: '#FEF3C7' }]}>
-            <Ionicons name="flash" size={24} color={AMBER} />
+        <View style={[styles.energyTile, { backgroundColor: '#FEF3C7' }]}>
+          <View style={styles.energyTileInner}>
+            <Ionicons name="flash" size={22} color={AMBER} />
+            <Text style={styles.energyCount}>{energy.timeLimited}</Text>
           </View>
-          <Text style={styles.energyCount}>{energy.timeLimited}</Text>
           <Text style={styles.energyLabel}>Daily energy</Text>
           <View style={styles.refillBadge}>
             <Ionicons name="time-outline" size={11} color={TEXT_MUTED} />
@@ -121,14 +121,12 @@ function NormalState({ energy, countdown, onClose }: {
           </View>
         </View>
 
-        <View style={styles.energyDivider} />
-
         {/* No-time-limit energy */}
-        <View style={styles.energyTile}>
-          <View style={[styles.energyIconCircle, { backgroundColor: PURPLE_LIGHT }]}>
-            <Ionicons name="flash" size={24} color={BRAND_PURPLE} />
+        <View style={[styles.energyTile, { backgroundColor: PURPLE_LIGHT }]}>
+          <View style={styles.energyTileInner}>
+            <Ionicons name="flash" size={22} color={BRAND_PURPLE} />
+            <Text style={styles.energyCount}>{energy.noTimeLimit}</Text>
           </View>
-          <Text style={styles.energyCount}>{energy.noTimeLimit}</Text>
           <Text style={styles.energyLabel}>Bonus energy</Text>
           <View style={styles.refillBadge}>
             <Ionicons name="infinite-outline" size={11} color={TEXT_MUTED} />
@@ -137,11 +135,36 @@ function NormalState({ energy, countdown, onClose }: {
         </View>
       </View>
 
-      <View style={styles.hintRow}>
-        <Ionicons name="information-circle-outline" size={14} color={TEXT_MUTED} />
-        <Text style={styles.hintText}>
-          Earn bonus energy by completing Challenges in your profile
-        </Text>
+      {/* How to earn */}
+      <Text style={styles.howToEarnHeader}>How to earn</Text>
+      <View style={styles.bulletRows}>
+        <View style={styles.bulletRow}>
+          <View style={styles.bulletIcon}>
+            <Ionicons name="time-outline" size={18} color={BRAND_PURPLE} />
+          </View>
+          <View style={styles.bulletText}>
+            <Text style={styles.bulletTitle}>Daily refill</Text>
+            <Text style={styles.bulletDesc}>Refills automatically every 24 hours.</Text>
+          </View>
+        </View>
+        <View style={styles.bulletRow}>
+          <View style={styles.bulletIcon}>
+            <Ionicons name="trophy-outline" size={18} color={BRAND_PURPLE} />
+          </View>
+          <View style={styles.bulletText}>
+            <Text style={styles.bulletTitle}>Earn more from challenges</Text>
+            <Text style={styles.bulletDesc}>Complete challenges to earn bonus energy.</Text>
+          </View>
+        </View>
+        <View style={styles.bulletRow}>
+          <View style={styles.bulletIcon}>
+            <Ionicons name="star-outline" size={18} color={BRAND_PURPLE} />
+          </View>
+          <View style={styles.bulletText}>
+            <Text style={styles.bulletTitle}>Go Premium for more</Text>
+            <Text style={styles.bulletDesc}>Get 3 bonus energy per renewal.</Text>
+          </View>
+        </View>
       </View>
     </>
   );
@@ -223,20 +246,22 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 14, fontFamily: 'Volte-Medium', color: TEXT_MUTED, marginBottom: 24 },
 
   // Normal state — energy tiles
-  energyRow:        { flexDirection: 'row', marginBottom: 20 },
-  energyTile:       { flex: 1, alignItems: 'center', gap: 6 },
-  energyDivider:    { width: 1, backgroundColor: BORDER, marginVertical: 8 },
-  energyIconCircle: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
-  energyCount:      { fontSize: 32, fontFamily: 'Volte-Semibold', color: TEXT_DARK },
-  energyLabel:      { fontSize: 13, fontFamily: 'Volte-Semibold', color: TEXT_DARK },
+  energyRow:       { flexDirection: 'row', gap: 12, marginBottom: 20 },
+  energyTile:      { flex: 1, borderRadius: 16, padding: 16, gap: 6 },
+  energyTileInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  energyCount:      { fontSize: 36, fontFamily: 'Volte-Semibold', color: TEXT_DARK },
+  energyLabel:      { fontSize: 16, fontFamily: 'Volte-Semibold', color: TEXT_DARK },
   refillBadge:      { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  refillText:       { fontSize: 11, fontFamily: 'Volte-Medium', color: TEXT_MUTED },
+  refillText:       { fontSize: 12, fontFamily: 'Volte-Medium', color: TEXT_MUTED },
 
-  hintRow: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 6,
-    backgroundColor: BG_CREAM, borderRadius: 12, padding: 12,
-  },
-  hintText: { flex: 1, fontSize: 13, fontFamily: 'Volte-Medium', color: TEXT_MUTED, lineHeight: 18 },
+  howToEarnHeader: { fontSize: 16, fontFamily: 'Volte-Semibold', color: TEXT_MUTED, letterSpacing: 0.5, marginTop: 24, marginBottom: 16 },
+
+  bulletRows: { gap: 20 },
+  bulletRow:  { flexDirection: 'row', gap: 14, alignItems: 'flex-start' },
+  bulletIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#EDE9F5', alignItems: 'center', justifyContent: 'center' },
+  bulletText: { flex: 1 },
+  bulletTitle:{ fontSize: 14, fontFamily: 'Volte-Semibold', color: TEXT_DARK, marginBottom: 2 },
+  bulletDesc: { fontSize: 13, fontFamily: 'Volte', color: TEXT_MUTED, lineHeight: 18 },
 
   // Empty state
   emptyContent:   { alignItems: 'center', paddingVertical: 8, gap: 8, marginBottom: 24 },

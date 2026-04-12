@@ -2,10 +2,12 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import * as Notifications from 'expo-notifications';
 import { AuthProvider, useAuth } from '@/lib/auth';
+import { requestNotificationPermission, getNotificationScreen } from '@/lib/notifications';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -14,6 +16,21 @@ function RootLayoutNav() {
   const { session, profile, loading, devForceOnboarding, clearDevForce } = useAuth();
   const router   = useRouter();
   const segments = useSegments();
+  const notifListenerRef = useRef<Notifications.Subscription | null>(null);
+
+  // Request notification permission on first load; handle deep-link taps
+  useEffect(() => {
+    requestNotificationPermission();
+
+    notifListenerRef.current = Notifications.addNotificationResponseReceivedListener(response => {
+      const screen = getNotificationScreen(response);
+      if (screen === 'learn') router.push('/(tabs)');
+    });
+
+    return () => {
+      notifListenerRef.current?.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (loading) return;

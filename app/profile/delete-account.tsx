@@ -17,7 +17,7 @@ import { useAuth } from '@/lib/auth';
 const BG_CREAM  = '#F8F5EF';
 const WHITE     = '#FFFFFF';
 const TEXT_DARK = '#262626';
-const TEXT_MUTED= '#9097A3';
+const TEXT_MUTED= '#525252';
 const RED       = '#EF4444';
 const RED_LIGHT = '#FEF2F2';
 const BORDER    = '#E8E5DF';

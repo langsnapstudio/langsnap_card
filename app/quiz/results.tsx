@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { incrementFeat } from '@/constants/feat-store';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const BRAND_PURPLE = '#7D69AB';
@@ -146,6 +147,7 @@ export default function QuizResultsScreen() {
   const btnOpacity      = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    incrementFeat('quiz_taker');
     Animated.stagger(120, [
       Animated.timing(titleOpacity,    { toValue: 1, duration: 400, useNativeDriver: true }),
       Animated.timing(subtitleOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
@@ -213,9 +215,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     gap: 2,
   },
-  scoreLabel:{ fontSize: 14, fontFamily: 'Volte-Medium', color: '#9097A3' },
+  scoreLabel:{ fontSize: 14, fontFamily: 'Volte-Medium', color: '#525252' },
   scoreNum:  { fontSize: 80, fontFamily: 'Volte-Semibold', lineHeight: 88 },
-  scoreDenom:{ fontSize: 18, fontFamily: 'Volte-Medium', color: '#9097A3' },
+  scoreDenom:{ fontSize: 18, fontFamily: 'Volte-Medium', color: '#525252' },
 
   // Text
   title: {

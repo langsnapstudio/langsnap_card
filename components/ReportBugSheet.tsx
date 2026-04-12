@@ -20,7 +20,7 @@ const BRAND_PURPLE = '#7D69AB';
 const BG_CREAM     = '#F8F5EF';
 const WHITE        = '#FFFFFF';
 const TEXT_DARK    = '#262626';
-const TEXT_MUTED   = '#9097A3';
+const TEXT_MUTED   = '#525252';
 const BORDER       = '#E5E5E5';
 const SUCCESS      = '#3DAB69';
 

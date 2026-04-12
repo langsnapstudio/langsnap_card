@@ -19,6 +19,9 @@ import * as Sharing from 'expo-sharing';
 import { getCurrentPack } from '@/constants/pack-store';
 import { cardTextColor } from '@/constants/mock-packs';
 import type { Card } from '@/constants/mock-packs';
+import { addWordsLearned, incrementFeat } from '@/constants/feat-store';
+import { recordStudySession } from '@/constants/streak-store';
+import { useAuth } from '@/lib/auth';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const BRAND_PURPLE  = '#7D69AB';
@@ -131,6 +134,7 @@ function FanCardView({ card, size = 160 }: { card: Card; size?: number }) {
 // ── Success Screen ─────────────────────────────────────────────────────────────
 export default function SuccessScreen() {
   const router = useRouter();
+  const { profile } = useAuth();
   const { deckTitle, cardCount } = useLocalSearchParams<{
     deckId: string; deckTitle: string; cardCount: string;
   }>();
@@ -146,6 +150,16 @@ export default function SuccessScreen() {
   // Live fan animations
   const fanAnims = useRef(FAN_POSITIONS.map(() => new Animated.Value(0))).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // ── Record study session + update feats on mount ───────────────────────────
+  useEffect(() => {
+    const count = parseInt(cardCount ?? '0', 10) || 0;
+    const lang  = profile?.target_language ?? 'mainland';
+    const isPremium = false; // replace with real subscription check
+
+    recordStudySession(lang, isPremium);
+    if (count > 0) addWordsLearned(count);
+  }, []);
 
   useEffect(() => {
     Animated.sequence([
@@ -173,6 +187,7 @@ export default function SuccessScreen() {
 
       if (igAvailable) {
         await Linking.openURL(`instagram-stories://share?backgroundImage=${encodeURIComponent(uri)}`);
+        incrementFeat('share_progress');
       } else {
         const canShare = await Sharing.isAvailableAsync();
         if (canShare) {

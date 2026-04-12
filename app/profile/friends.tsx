@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { incrementFeat } from '@/constants/feat-store';
 import {
   getFollowing,
   getFollowers,
@@ -28,7 +29,7 @@ const PURPLE_LIGHT = '#EDE9F5';
 const BG_CREAM     = '#F8F5EF';
 const WHITE        = '#FFFFFF';
 const TEXT_DARK    = '#262626';
-const TEXT_MUTED   = '#9097A3';
+const TEXT_MUTED   = '#525252';
 const BORDER       = '#E8E5DF';
 
 type Tab = 'following' | 'followers';
@@ -125,6 +126,7 @@ export default function FriendsScreen() {
       unfollowUser(user.id);
     } else {
       followUser(user.id);
+      incrementFeat('first_connection');
     }
     forceUpdate(n => n + 1); // re-render to reflect change
   }

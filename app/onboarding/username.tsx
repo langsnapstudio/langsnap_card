@@ -1,8 +1,9 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -116,6 +117,13 @@ export default function UsernameScreen() {
   const [usernameFocused, setUsernameFocused] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardWillShow', () => setKeyboardVisible(true));
+    const hide = Keyboard.addListener('keyboardWillHide', () => setKeyboardVisible(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   // ── Validation ───────────────────────────────────────────────────────────────
   const validateUsername = useCallback(async (value: string) => {
@@ -193,9 +201,7 @@ export default function UsernameScreen() {
             activeOpacity={0.9}
           >
             <AvatarCircle avatar={selectedAvatar} size={120} />
-            <View style={styles.editBadge}>
-              <Ionicons name="pencil" size={12} color="#FFF" />
-            </View>
+            <Text style={styles.changeAvatarLink}>Change your avatar</Text>
           </TouchableOpacity>
 
           {/* Name */}
@@ -254,8 +260,8 @@ export default function UsernameScreen() {
           </View>
         </View>
 
-        {/* Continue button */}
-        <View style={styles.footer}>
+        {/* Continue button — hidden when keyboard is up */}
+        {!keyboardVisible && <View style={styles.footer}>
           <TouchableOpacity
             style={[styles.btn, !canContinue && styles.btnDisabled]}
             onPress={handleContinue}
@@ -267,7 +273,7 @@ export default function UsernameScreen() {
               : <Text style={styles.btnText}>Continue</Text>
             }
           </TouchableOpacity>
-        </View>
+        </View>}
       </KeyboardAvoidingView>
 
       {/* Avatar picker */}
@@ -319,15 +325,9 @@ const styles = StyleSheet.create({
   },
 
   // Avatar — centered, 120px
-  avatarWrapper: { alignSelf: 'center', marginBottom: 36 },
-  avatarCircle:  { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  editBadge: {
-    position: 'absolute', bottom: 0, right: 0,
-    width: 24, height: 24, borderRadius: 999,
-    backgroundColor: BRAND_PURPLE,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: BG_CREAM,
-  },
+  avatarWrapper:    { alignSelf: 'center', alignItems: 'center', marginBottom: 28, gap: 10 },
+  avatarCircle:     { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  changeAvatarLink: { fontSize: 13, fontFamily: 'Volte-Medium', color: BRAND_PURPLE },
 
   // Fields — gap 24 between them
   fieldGroup: { marginBottom: 24 },

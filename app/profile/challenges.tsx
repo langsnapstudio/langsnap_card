@@ -14,6 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Audio } from 'expo-av';
+import { getFeats, claimFeat, addWordsLearned } from '@/constants/feat-store';
+import type { FeatWithProgress } from '@/constants/feat-store';
 
 const SCREEN_WIDTH  = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -24,36 +26,12 @@ const PURPLE_LIGHT  = '#EDE9F5';
 const BG_CREAM      = '#F8F5EF';
 const WHITE         = '#FFFFFF';
 const TEXT_DARK     = '#262626';
-const TEXT_MUTED    = '#9097A3';
+const TEXT_MUTED    = '#525252';
 const GREEN         = '#22C55E';
 const BORDER        = '#E8E5DF';
 
-// ── Types & mock data ──────────────────────────────────────────────────────────
-type Feat = {
-  id:       string;
-  title:    string;
-  desc:     string;
-  icon:     string;
-  progress: number;
-  goal:     number;
-  claimed:  boolean;
-  reward:   number;
-};
-
-const INITIAL_FEATS: Feat[] = [
-  { id: 'first_word',   title: 'First Steps',        desc: 'Learn your first word',        icon: '🌱', progress: 1,  goal: 1,   claimed: true,  reward: 5  },
-  { id: 'ten_words',    title: 'Getting Started',    desc: 'Learn 10 words',               icon: '📖', progress: 10, goal: 10,  claimed: false, reward: 10 },
-  { id: 'fifty_words',  title: 'Vocabulary Builder', desc: 'Learn 50 words',               icon: '🧠', progress: 42, goal: 50,  claimed: false, reward: 20 },
-  { id: 'week_streak',  title: 'Week Warrior',       desc: 'Keep a 7-day streak',          icon: '🔥', progress: 7,  goal: 7,   claimed: false, reward: 15 },
-  { id: 'month_streak', title: 'Monthly Master',     desc: 'Keep a 30-day streak',         icon: '🏆', progress: 7,  goal: 30,  claimed: false, reward: 50 },
-  { id: 'cards_100',    title: 'Card Collector',     desc: 'Review 100 cards',             icon: '🃏', progress: 42, goal: 100, claimed: false, reward: 25 },
-  { id: 'first_pack',   title: 'Pack Opener',        desc: 'Redeem your first pack',       icon: '🎁', progress: 1,  goal: 1,   claimed: false, reward: 5  },
-  { id: 'five_decks',   title: 'Deck Explorer',      desc: 'Study from 5 different decks', icon: '🗂️', progress: 2,  goal: 5,   claimed: false, reward: 15 },
-  { id: 'words_200',    title: 'Word Hoarder',       desc: 'Learn 200 words',              icon: '📚', progress: 42, goal: 200, claimed: false, reward: 40 },
-  { id: 'streak_30',    title: 'Habit Formed',       desc: 'Study 30 days in a row',       icon: '🗓️', progress: 7,  goal: 30,  claimed: false, reward: 50 },
-  { id: 'quiz_perfect', title: 'Perfectionist',      desc: 'Get 100% on a quiz',           icon: '🎯', progress: 0,  goal: 1,   claimed: false, reward: 10 },
-  { id: 'cards_500',    title: 'Flashcard Fanatic',  desc: 'Review 500 cards',             icon: '⚡', progress: 42, goal: 500, claimed: false, reward: 60 },
-];
+// Use FeatWithProgress from feat-store (re-export as local alias for readability)
+type Feat = FeatWithProgress;
 
 // ── Confetti ───────────────────────────────────────────────────────────────────
 const CONFETTI_COLORS = ['#4F8EF7', '#FF6B6B', '#FFD93D', '#6BCB77', '#C77DFF', '#FF9F1C', '#FF9AD5'];
@@ -240,17 +218,24 @@ function FeatCard({ feat, onClaim }: { feat: Feat; onClaim: (id: string) => void
 // ── Screen ─────────────────────────────────────────────────────────────────────
 export default function ChallengesScreen() {
   const router = useRouter();
-  const [feats, setFeats]           = useState<Feat[]>(INITIAL_FEATS);
+  const [feats, setFeats]           = useState<Feat[]>([]);
   const [sheetVisible, setSheet]    = useState(false);
   const [claimedReward, setReward]  = useState(0);
 
+  // Load feats from persistent store on mount
+  useEffect(() => {
+    getFeats().then(setFeats);
+  }, []);
+
   const sorted = sortFeats(feats);
 
-  function handleClaim(id: string) {
+  async function handleClaim(id: string) {
     const feat = feats.find(f => f.id === id);
     if (!feat) return;
+    const reward = await claimFeat(id);
+    if (reward === 0) return; // already claimed or not complete
     setFeats(prev => prev.map(f => f.id === id ? { ...f, claimed: true } : f));
-    setReward(feat.reward);
+    setReward(reward);
     setSheet(true);
   }
 

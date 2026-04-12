@@ -38,8 +38,17 @@ const READING_SYSTEMS = [
 export default function ReadingScreen() {
   const { user, refreshProfile } = useAuth();
   const router = useRouter();
-  const [selected, setSelected] = useState<string | null>(null);
-  const [saving, setSaving]     = useState(false);
+  const [selected, setSelected]   = useState<string | null>(null);
+  const [saving, setSaving]       = useState(false);
+  const [goingBack, setGoingBack] = useState(false);
+
+  const handleBack = async () => {
+    if (!user || goingBack) return;
+    setGoingBack(true);
+    await supabase.from('profiles').update({ target_language: null }).eq('id', user.id);
+    await refreshProfile();
+    // nav guard will replace to /onboarding/language with pop animation
+  };
 
   const handleContinue = async () => {
     if (!user || !selected) return;
@@ -60,8 +69,8 @@ export default function ReadingScreen() {
       <View style={styles.container}>
 
         {/* Back to language */}
-        <TouchableOpacity onPress={() => router.replace('/onboarding/language')} style={styles.backRow} hitSlop={12}>
-          <Text style={styles.backLink}>← Mandarin Chinese (Taiwan)</Text>
+        <TouchableOpacity onPress={handleBack} style={styles.backRow} hitSlop={12} disabled={goingBack}>
+          <Text style={styles.backLink}>← Back to select language</Text>
         </TouchableOpacity>
 
         <Text style={styles.heading}>How do you prefer to read?</Text>

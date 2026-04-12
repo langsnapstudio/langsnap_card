@@ -15,12 +15,15 @@ import { useRouter } from 'expo-router';
 import { getReviewSummary } from '@/constants/review-store';
 import type { Card } from '@/constants/mock-packs';
 import { cardTextColor } from '@/constants/mock-packs';
+import { incrementFeat } from '@/constants/feat-store';
+import { recordStudySession } from '@/constants/streak-store';
+import { useAuth } from '@/lib/auth';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const BRAND_PURPLE = '#7D69AB';
 const WHITE        = '#FFFFFF';
 const TEXT_DARK    = '#262626';
-const TEXT_MUTED   = '#9097A3';
+const TEXT_MUTED   = '#525252';
 const GREEN        = '#22C55E';
 const RED          = '#EF4444';
 
@@ -160,6 +163,7 @@ function CardRow({ card }: { card: Card }) {
 // ── Summary Screen ────────────────────────────────────────────────────────────
 export default function ReviewSummaryScreen() {
   const router  = useRouter();
+  const { profile } = useAuth();
   const summary = getReviewSummary();
 
   const remembered = summary?.remembered ?? [];
@@ -167,6 +171,14 @@ export default function ReviewSummaryScreen() {
   const total      = remembered.length + forgot.length;
 
   const showConfetti = total > 0 && remembered.length / total >= 0.8;
+
+  // Record study session + feats on mount
+  useEffect(() => {
+    const lang = profile?.target_language ?? 'mainland';
+    const isPremium = false;
+    recordStudySession(lang, isPremium);
+    incrementFeat('first_review');
+  }, []);
 
   return (
     <View style={styles.root}>
