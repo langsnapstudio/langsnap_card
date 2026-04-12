@@ -18,7 +18,7 @@ import { setReviewSession, DEFAULT_REVIEW_CONFIG } from '@/constants/review-stor
 const BRAND_PURPLE = '#7D69AB';
 const BG_CREAM     = '#F8F5EF';
 const TEXT_DARK    = '#262626';
-const TEXT_MUTED   = '#9097A3';
+const TEXT_MUTED   = '#525252';
 const WHITE        = '#FFFFFF';
 
 // ── Card row ───────────────────────────────────────────────────────────────────

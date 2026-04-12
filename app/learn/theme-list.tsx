@@ -17,7 +17,7 @@ import { useRouter } from 'expo-router';
 const BRAND_PURPLE = '#7D69AB';
 const BG_CREAM     = '#F8F5EF';
 const TEXT_DARK    = '#262626';
-const TEXT_MUTED   = '#9097A3';
+const TEXT_MUTED   = '#525252';
 const WHITE        = '#FFFFFF';
 
 const ENERGY_COUNT = 1;

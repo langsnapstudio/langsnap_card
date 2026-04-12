@@ -21,6 +21,8 @@ import { useAuth } from '@/lib/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFollowingCount, getFollowersCount } from '@/constants/social-store';
 import { ALL_LANGUAGES, LANGUAGE_MAP } from '@/constants/languages';
+import { getStreakData, getMissedDays } from '@/constants/streak-store';
+import { getClaimableCount } from '@/constants/feat-store';
 import QRCodeModal from '@/components/QRCodeModal';
 import UpgradeModal from '@/components/UpgradeModal';
 import ReportBugSheet from '@/components/ReportBugSheet';
@@ -32,7 +34,7 @@ const PURPLE_LIGHT  = '#EDE9F5';
 const BG_CREAM      = '#F8F5EF';
 const WHITE         = '#FFFFFF';
 const TEXT_DARK     = '#262626';
-const TEXT_MUTED    = '#9097A3';
+const TEXT_MUTED    = '#525252';
 const GREEN         = '#22C55E';
 const AMBER         = '#F59E0B';
 const RED           = '#EF4444';
@@ -96,34 +98,6 @@ function AvatarCircle({ avatarId, size = 88 }: { avatarId: string; size?: number
   );
 }
 
-// ── Mock data (replace with real store later) ──────────────────────────────────
-const MOCK_STATS = {
-  streak:        7,
-  freezeActive:  false,   // true = freeze was used today
-  freezeAvailable: true,  // 1 free freeze recharged
-  wordsLearned:  42,
-  cardsReviewed: 180,
-};
-
-type Feat = {
-  id:       string;
-  title:    string;
-  desc:     string;
-  icon:     string;
-  progress: number;
-  goal:     number;
-  claimed:  boolean;
-  reward:   number; // no-time-limit energy
-};
-
-const MOCK_FEATS: Feat[] = [
-  { id: 'first_word',   title: 'First Steps',         desc: 'Learn your first word',    icon: '🌱', progress: 1,   goal: 1,   claimed: true,  reward: 5  },
-  { id: 'ten_words',    title: 'Getting Started',     desc: 'Learn 10 words',           icon: '📖', progress: 10,  goal: 10,  claimed: false, reward: 10 },
-  { id: 'fifty_words',  title: 'Vocabulary Builder',  desc: 'Learn 50 words',           icon: '🧠', progress: 42,  goal: 50,  claimed: false, reward: 20 },
-  { id: 'week_streak',  title: 'Week Warrior',        desc: 'Keep a 7-day streak',      icon: '🔥', progress: 7,   goal: 7,   claimed: false, reward: 15 },
-  { id: 'month_streak', title: 'Monthly Master',      desc: 'Keep a 30-day streak',     icon: '🏆', progress: 7,   goal: 30,  claimed: false, reward: 50 },
-  { id: 'cards_100',    title: 'Card Collector',      desc: 'Review 100 cards',         icon: '🃏', progress: 42,  goal: 100, claimed: false, reward: 25 },
-];
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
@@ -172,48 +146,6 @@ function MenuRow({ icon, label, destructive, onPress }: {
   );
 }
 
-function FeatRow({ feat, onClaim }: { feat: Feat; onClaim: (id: string) => void }) {
-  const ratio     = Math.min(feat.progress / feat.goal, 1);
-  const complete  = feat.progress >= feat.goal;
-  const claimable = complete && !feat.claimed;
-
-  return (
-    <View style={styles.featRow}>
-      <Text style={styles.featIcon}>{feat.icon}</Text>
-
-      <View style={styles.featInfo}>
-        <View style={styles.featTitleRow}>
-          <Text style={styles.featTitle}>{feat.title}</Text>
-          {feat.claimed && (
-            <View style={styles.claimedBadge}>
-              <Ionicons name="checkmark" size={11} color={GREEN} />
-              <Text style={styles.claimedText}>Claimed</Text>
-            </View>
-          )}
-        </View>
-        <Text style={styles.featDesc}>{feat.desc}</Text>
-
-        <View style={styles.featProgressRow}>
-          <View style={styles.featTrack}>
-            <View style={[styles.featFill, { width: `${ratio * 100}%` as any }]} />
-          </View>
-          <Text style={styles.featCount}>{feat.progress}/{feat.goal}</Text>
-        </View>
-      </View>
-
-      {claimable && (
-        <TouchableOpacity
-          style={styles.claimBtn}
-          activeOpacity={0.8}
-          onPress={() => onClaim(feat.id)}
-        >
-          <Text style={styles.claimBtnText}>+{feat.reward}</Text>
-          <Text style={styles.claimBtnSub}>⚡</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-}
 
 function PulseDot() {
   const scale = useRef(new Animated.Value(1)).current;
@@ -273,15 +205,30 @@ export default function ProfileScreen() {
 
   const avatarId = profile?.avatar_id ?? 'dog';
 
-  const [feats,      setFeats]      = useState<Feat[]>(MOCK_FEATS);
-  const [reminder,   setReminder]   = useState(false);
-  const [freezeNotif,setFreezeNotif]= useState(true);
+  const [streakCount,    setStreakCount]    = useState(0);
+  const [missedDays,     setMissedDays]     = useState(0);
+  const [claimableCount, setClaimableCount] = useState(0);
+  const [reminder,       setReminder]       = useState(false);
+  const [freezeNotif,    setFreezeNotif]    = useState(true);
   const [qrVisible,        setQrVisible]        = useState(false);
   const [upgradeVisible,   setUpgradeVisible]   = useState(false);
   const [reportBugVisible, setReportBugVisible] = useState(false);
 
   const followingCount = getFollowingCount();
   const followersCount = getFollowersCount();
+
+  useEffect(() => {
+    const lang = profile?.target_language ?? 'mainland';
+    Promise.all([
+      getStreakData(lang),
+      getMissedDays(lang),
+      getClaimableCount(),
+    ]).then(([streak, missed, claimable]) => {
+      setStreakCount(streak.streak);
+      setMissedDays(missed);
+      setClaimableCount(claimable);
+    });
+  }, [profile?.target_language]);
 
   function handleCopyLink() {
     const link = `https://langsnap.app/u/${profile?.username ?? ''}`;
@@ -293,17 +240,21 @@ export default function ProfileScreen() {
     }
   }
 
-  const stats = MOCK_STATS;
-
-  function handleClaim(id: string) {
-    setFeats(prev => prev.map(f => f.id === id ? { ...f, claimed: true } : f));
-  }
-
   const [devIsPremium, setDevIsPremium] = useState(false);
   useEffect(() => {
     AsyncStorage.getItem(DEV_IS_PREMIUM_KEY).then(val => setDevIsPremium(val === 'true'));
   }, []);
   const isPremium = __DEV__ ? devIsPremium : false; // replace with real subscription check
+
+  const maxFreezes       = isPremium ? 2 : 1;
+  const freezesRemaining = Math.max(0, maxFreezes - missedDays);
+  const freezeActive     = missedDays > 0;
+  const freezeAvailable  = freezesRemaining > 0;
+  const freezeStatusText = freezeActive
+    ? freezesRemaining > 0
+      ? `${freezesRemaining} of ${maxFreezes} freeze${maxFreezes > 1 ? 's' : ''} remaining`
+      : 'No freeze available'
+    : `${maxFreezes} freeze${maxFreezes > 1 ? 's' : ''} ready`;
 
   const devTogglePremium = async () => {
     const next = !devIsPremium;
@@ -396,23 +347,17 @@ export default function ProfileScreen() {
         <View style={[styles.card, { marginTop: 10 }]}>
           <View style={styles.streakHeader}>
             <View>
-              <Text style={styles.streakCount}>{stats.streak} day streak 🔥</Text>
+              <Text style={styles.streakCount}>{streakCount} day streak 🔥</Text>
               <Text style={styles.streakSub}>Keep it up — study today to keep your streak!</Text>
             </View>
           </View>
 
           <View style={styles.freezeRow}>
-            <View style={[styles.freezeBadge, stats.freezeAvailable ? styles.freezeAvail : styles.freezeUsed]}>
+            <View style={[styles.freezeBadge, freezeAvailable ? styles.freezeAvail : styles.freezeUsed]}>
               <Text style={styles.freezeIcon}>🧊</Text>
               <View>
                 <Text style={styles.freezeTitle}>Streak Freeze</Text>
-                <Text style={styles.freezeStatus}>
-                  {stats.freezeActive
-                    ? 'Used today — recharges on next study'
-                    : stats.freezeAvailable
-                    ? '1 freeze ready'
-                    : 'No freeze available'}
-                </Text>
+                <Text style={styles.freezeStatus}>{freezeStatusText}</Text>
               </View>
             </View>
           </View>
@@ -456,30 +401,25 @@ export default function ProfileScreen() {
         )}
 
         {/* ── Challenges (Feats) ────────────────────────────────────────── */}
-        {(() => {
-          const claimable = feats.filter(f => f.progress >= f.goal && !f.claimed).length;
-          return (
-            <TouchableOpacity
-              style={[styles.challengesCard, { marginTop: 10 }]}
-              activeOpacity={0.8}
-              onPress={() => router.push('/profile/challenges')}
-            >
-              <View style={styles.challengesLeft}>
-                <Text style={styles.challengesIcon}>🏆</Text>
-                <View>
-                  <Text style={styles.challengesTitle}>Challenges</Text>
-                  <Text style={styles.challengesSub}>
-                    {claimable > 0 ? `${claimable} ready to claim ⚡` : 'Nothing to claim'}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.chevronWrap}>
-                {claimable > 0 && <PulseDot />}
-                <Ionicons name="chevron-forward" size={18} color="#9097A3" />
-              </View>
-            </TouchableOpacity>
-          );
-        })()}
+        <TouchableOpacity
+          style={[styles.challengesCard, { marginTop: 10 }]}
+          activeOpacity={0.8}
+          onPress={() => router.push('/profile/challenges')}
+        >
+          <View style={styles.challengesLeft}>
+            <Text style={styles.challengesIcon}>🏆</Text>
+            <View>
+              <Text style={styles.challengesTitle}>Challenges</Text>
+              <Text style={styles.challengesSub}>
+                {claimableCount > 0 ? `${claimableCount} ready to claim ⚡` : 'Nothing to claim'}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.chevronWrap}>
+            {claimableCount > 0 && <PulseDot />}
+            <Ionicons name="chevron-forward" size={18} color="#525252" />
+          </View>
+        </TouchableOpacity>
 
         {/* ── Settings ─────────────────────────────────────────────────── */}
         <SectionHeader title="Notifications" />

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import type { Session, User } from '@supabase/supabase-js';
@@ -26,6 +27,8 @@ type AuthContextType = {
   devForceOnboarding: boolean;
   clearDevForce: () => void;
   signInWithGoogle: () => Promise<void>;
+  signInWithApple: () => Promise<void>;
+  appleAvailable: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 };
@@ -39,6 +42,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile]               = useState<Profile | null>(null);
   const [loading, setLoading]               = useState(true);
   const [devForceOnboarding, setDevForce]   = useState(false);
+  const [appleAvailable, setAppleAvailable] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS === 'ios') {
+      AppleAuthentication.isAvailableAsync().then(setAppleAvailable).catch(() => {});
+    }
+  }, []);
 
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
@@ -134,6 +144,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // ── Apple Sign-In ────────────────────────────────────────────────────────────
+  const signInWithApple = async () => {
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        Alert.alert('Sign-in Error', 'No identity token received from Apple');
+        return;
+      }
+
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token:    credential.identityToken,
+      });
+
+      if (error) Alert.alert('Sign-in Error', error.message);
+    } catch (err: any) {
+      if (err?.code !== 'ERR_REQUEST_CANCELED') {
+        Alert.alert('Sign-in Error', err?.message ?? 'Something went wrong');
+      }
+    }
+  };
+
   const signOut = async () => {
     await AsyncStorage.removeItem(WELCOME_SHOWN_KEY);
     await supabase.auth.signOut();
@@ -149,6 +187,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       devForceOnboarding,
       clearDevForce,
       signInWithGoogle,
+      signInWithApple,
+      appleAvailable,
       signOut,
       refreshProfile,
     }}>

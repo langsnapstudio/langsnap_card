@@ -161,13 +161,13 @@ export const DECK_DATA: Record<string, DeckMeta> = {
       {
         id: 'lv3', level: 3, cardCount: 10,
         thumbnail: require('../assets/images/illustration-dog.png'),
-        energyCost: 1, isLocked: true, isPremium: true,
+        energyCost: 1, isLocked: false, isPremium: true,
         cards: [],
       },
       {
         id: 'lv4', level: 4, cardCount: 10,
         thumbnail: require('../assets/images/illustration-dog.png'),
-        energyCost: 1, isLocked: true, isPremium: true,
+        energyCost: 1, isLocked: false, isPremium: true,
         cards: [],
       },
     ],
@@ -200,13 +200,13 @@ export const DECK_DATA: Record<string, DeckMeta> = {
       {
         id: 'lv3', level: 3, cardCount: 10,
         thumbnail: require('../assets/images/illustration-pineapple.png'),
-        energyCost: 1, isLocked: true, isPremium: true,
+        energyCost: 1, isLocked: false, isPremium: true,
         cards: [],
       },
       {
         id: 'lv4', level: 4, cardCount: 10,
         thumbnail: require('../assets/images/illustration-pineapple.png'),
-        energyCost: 1, isLocked: true, isPremium: true,
+        energyCost: 1, isLocked: false, isPremium: true,
         cards: [],
       },
     ],
@@ -233,7 +233,7 @@ export const DECK_DATA: Record<string, DeckMeta> = {
       {
         id: 'lv3', level: 3, cardCount: 10,
         thumbnail: require('../assets/images/illustration-bubble-tea.png'),
-        energyCost: 1, isLocked: true, isPremium: false,
+        energyCost: 1, isLocked: false, isPremium: false,
         cards: [],
       },
     ],

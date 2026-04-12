@@ -648,7 +648,7 @@ const styles = StyleSheet.create({
   sheetTitle:   { fontSize: 18, fontFamily: 'Volte-Semibold', color: '#262626', marginBottom: 24 },
   settingRow:   { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 8, marginBottom: 16 },
   settingLabel: { fontSize: 16, fontFamily: 'Volte-Semibold', color: '#262626', marginBottom: 4 },
-  settingDesc:  { fontSize: 13, fontFamily: 'Volte', color: '#9097A3' },
+  settingDesc:  { fontSize: 13, fontFamily: 'Volte', color: '#525252' },
 
   romajiToggleGroup:         { flexDirection: 'row', borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden' },
   romajiToggleBtn:           { paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#F9FAFB' },
