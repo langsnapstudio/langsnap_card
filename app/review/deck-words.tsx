@@ -144,16 +144,12 @@ export default function DeckWordsScreen() {
       {/* Bottom action bar */}
       <View style={styles.actionBar}>
         <TouchableOpacity style={styles.actionBtn} activeOpacity={0.8} onPress={handleReview}>
-          <View style={styles.actionIconCircle}>
-            <Ionicons name="play" size={20} color={BRAND_PURPLE} />
-          </View>
+          <Text style={styles.actionEmoji}>🧠</Text>
           <Text style={styles.actionLabel}>Review</Text>
         </TouchableOpacity>
         <View style={styles.actionDivider} />
         <TouchableOpacity style={styles.actionBtn} activeOpacity={0.8} onPress={handleQuiz}>
-          <View style={styles.actionIconCircle}>
-            <Ionicons name="game-controller" size={20} color={BRAND_PURPLE} />
-          </View>
+          <Text style={styles.actionEmoji}>🎮</Text>
           <Text style={styles.actionLabel}>Quiz</Text>
         </TouchableOpacity>
       </View>
@@ -213,7 +209,7 @@ const styles = StyleSheet.create({
   actionBar: {
     flexDirection: 'row', backgroundColor: WHITE,
     borderRadius: 20, marginHorizontal: 16, marginBottom: 8,
-    paddingVertical: 16,
+    paddingVertical: 20,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06, shadowRadius: 8, elevation: 8,
   },
@@ -225,6 +221,7 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: '#EDE9F5', alignItems: 'center', justifyContent: 'center',
   },
+  actionEmoji:   { fontSize: 20 },
   actionLabel:   { fontSize: 15, fontFamily: 'Volte-Semibold', color: TEXT_DARK },
   actionDivider: { width: 1, backgroundColor: '#E8E5DF', marginVertical: 4 },
 });

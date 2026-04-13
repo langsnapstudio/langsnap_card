@@ -2,13 +2,18 @@ import { Tabs } from 'expo-router';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import NoInternetScreen from '@/components/OfflineBanner';
 
 const BRAND_PURPLE = '#7D69AB';
 const TAB_BG       = '#FFFFFF';
 const INACTIVE     = '#AAAAAA';
 
 export default function TabLayout() {
+  const { isOnline, recheck } = useNetworkStatus();
+
   return (
+    <>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -58,6 +63,8 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+    {!isOnline && <NoInternetScreen onRetry={recheck} />}
+    </>
   );
 }
 

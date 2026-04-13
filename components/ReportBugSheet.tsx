@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSheetDismiss } from '@/hooks/useSheetDismiss';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const BRAND_PURPLE = '#7D69AB';
@@ -43,6 +44,7 @@ export default function ReportBugSheet({
 }) {
   const slideAnim = useRef(new Animated.Value(500)).current;
   const fadeAnim  = useRef(new Animated.Value(0)).current;
+  const { dragY, panHandlers } = useSheetDismiss(onClose);
 
   const [description, setDescription] = useState('');
   const [feature,     setFeature]     = useState<string | null>(null);
@@ -51,6 +53,8 @@ export default function ReportBugSheet({
 
   React.useEffect(() => {
     if (visible) {
+      slideAnim.setValue(500);
+      dragY.setValue(0);
       Animated.parallel([
         Animated.timing(fadeAnim,  { toValue: 1, duration: 200, useNativeDriver: true }),
         Animated.spring(slideAnim, { toValue: 0, tension: 70, friction: 12, useNativeDriver: true }),
@@ -92,9 +96,9 @@ export default function ReportBugSheet({
         style={styles.kvWrap}
         pointerEvents="box-none"
       >
-        <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
+        <Animated.View style={[styles.sheet, { transform: [{ translateY: Animated.add(slideAnim, dragY) }] }]}>
           {/* Handle */}
-          <View style={styles.handle} />
+          <View style={styles.handle} {...panHandlers} />
 
           {/* Close */}
           <TouchableOpacity style={styles.closeBtn} onPress={handleClose} hitSlop={12}>

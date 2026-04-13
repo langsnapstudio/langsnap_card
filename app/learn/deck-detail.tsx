@@ -21,6 +21,8 @@ import { incrementFeat } from '@/constants/feat-store';
 import { getTotalEnergy } from '@/constants/energy-store';
 import EnergyBottomSheet from '@/components/EnergyBottomSheet';
 import { getActivatedPacks, markPackActivated, isActivated } from '@/constants/activated-store';
+import { useSheetDismiss } from '@/hooks/useSheetDismiss';
+import { useAuth } from '@/lib/auth';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const BRAND_PURPLE = '#7D69AB';
@@ -72,9 +74,12 @@ function RedemptionSheet({
 }) {
   const slideAnim = useRef(new Animated.Value(500)).current;
   const fadeAnim  = useRef(new Animated.Value(0)).current;
+  const { dragY, panHandlers } = useSheetDismiss(onCancel);
 
   React.useEffect(() => {
     if (visible) {
+      slideAnim.setValue(500);
+      dragY.setValue(0);
       Animated.parallel([
         Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
         Animated.spring(slideAnim, { toValue: 0, tension: 70, friction: 12, useNativeDriver: true }),
@@ -95,7 +100,9 @@ function RedemptionSheet({
         <Pressable style={StyleSheet.absoluteFill} onPress={onCancel} />
       </Animated.View>
 
-      <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
+      <Animated.View style={[styles.sheet, { transform: [{ translateY: Animated.add(slideAnim, dragY) }] }]}>
+        {/* Handle */}
+        <View style={styles.sheetHandle} {...panHandlers} />
         {/* Close */}
         <TouchableOpacity style={styles.sheetClose} onPress={onCancel} hitSlop={12}>
           <Ionicons name="close" size={22} color={TEXT_DARK} />
@@ -199,6 +206,8 @@ function PackButton({
 export default function DeckDetailScreen() {
   const router = useRouter();
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
+  const { profile } = useAuth();
+  const langKey = profile?.target_language ?? 'mainland';
 
   const deck: DeckMeta = DECK_DATA[deckId ?? ''] ?? DEFAULT_DECK;
   const emoji = DECK_EMOJI[deckId ?? ''] ?? '📦';
@@ -207,7 +216,7 @@ export default function DeckDetailScreen() {
   const [upgradeVisible, setUpgradeVisible] = useState(false);
   const [energyVisible,  setEnergyVisible]  = useState(false);
   const [activatedPacks, setActivatedPacks] = useState<Set<string>>(new Set());
-  const energyCount = getTotalEnergy();
+  const energyCount = getTotalEnergy(langKey);
 
   useEffect(() => {
     getActivatedPacks().then(setActivatedPacks);
@@ -331,7 +340,7 @@ export default function DeckDetailScreen() {
         visible={upgradeVisible}
         onClose={() => setUpgradeVisible(false)}
       />
-      <EnergyBottomSheet visible={energyVisible} onClose={() => setEnergyVisible(false)} />
+      <EnergyBottomSheet visible={energyVisible} onClose={() => setEnergyVisible(false)} languageId={langKey} />
     </SafeAreaView>
   );
 }
@@ -422,7 +431,13 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: 0, left: 0, right: 0,
     backgroundColor: BG_CREAM,
     borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    paddingHorizontal: 24, paddingBottom: 40, paddingTop: 20,
+    paddingHorizontal: 24, paddingBottom: 40, paddingTop: 12,
+  },
+  sheetHandle: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: '#D1CCC0',
+    alignSelf: 'center',
+    marginBottom: 12,
   },
   sheetClose: { alignSelf: 'flex-end', marginBottom: 4 },
 

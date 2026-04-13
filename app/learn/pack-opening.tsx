@@ -22,6 +22,7 @@ import { getCurrentPack } from '@/constants/pack-store';
 import { cardTextColor } from '@/constants/mock-packs';
 import type { ExampleSentence } from '@/constants/mock-packs';
 import { useAuth } from '@/lib/auth';
+import { useSheetDismiss } from '@/hooks/useSheetDismiss';
 
 const AUTOPLAY_KEY = 'langsnap:autoplay_audio';
 
@@ -109,6 +110,7 @@ export default function PackOpeningScreen() {
   const [pendingAutoPlay, setPendingAutoPlay]   = useState(true);
   const settingsSlide = useRef(new Animated.Value(300)).current;
   const settingsFade  = useRef(new Animated.Value(0)).current;
+  const { dragY: settingsDragY, panHandlers: settingsPanHandlers } = useSheetDismiss(closeSettings);
 
   useEffect(() => {
     Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
@@ -121,6 +123,8 @@ export default function PackOpeningScreen() {
   }, []);
 
   function openSettings() {
+    settingsSlide.setValue(300);
+    settingsDragY.setValue(0);
     setPendingAutoPlay(autoPlay);
     setShowSettings(true);
     Animated.parallel([
@@ -569,8 +573,8 @@ export default function PackOpeningScreen() {
           <Animated.View style={[styles.settingsOverlay, { opacity: settingsFade }]}>
             <Pressable style={StyleSheet.absoluteFill} onPress={closeSettings} />
           </Animated.View>
-          <Animated.View style={[styles.settingsSheet, { transform: [{ translateY: settingsSlide }] }]}>
-            <View style={styles.sheetHandle} />
+          <Animated.View style={[styles.settingsSheet, { transform: [{ translateY: Animated.add(settingsSlide, settingsDragY) }] }]}>
+            <View style={styles.sheetHandle} {...settingsPanHandlers} />
             <Text style={styles.sheetTitle}>Settings</Text>
 
             <View style={styles.settingRow}>

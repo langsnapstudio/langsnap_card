@@ -21,12 +21,13 @@ import { useAuth } from '@/lib/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFollowingCount, getFollowersCount } from '@/constants/social-store';
 import { ALL_LANGUAGES, LANGUAGE_MAP } from '@/constants/languages';
-import { getStreakData, getMissedDays } from '@/constants/streak-store';
+import { getStreakData, getMissedDays, utcDayKey } from '@/constants/streak-store';
 import { getClaimableCount } from '@/constants/feat-store';
 import QRCodeModal from '@/components/QRCodeModal';
 import UpgradeModal from '@/components/UpgradeModal';
 import ReportBugSheet from '@/components/ReportBugSheet';
 import { DEV_FORCE_ONBOARDING_KEY, DEV_IS_PREMIUM_KEY } from '@/constants/storage-keys';
+import { supabase } from '@/lib/supabase';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const BRAND_PURPLE  = '#7D69AB';
@@ -208,8 +209,8 @@ export default function ProfileScreen() {
   const [streakCount,    setStreakCount]    = useState(0);
   const [missedDays,     setMissedDays]     = useState(0);
   const [claimableCount, setClaimableCount] = useState(0);
-  const [reminder,       setReminder]       = useState(false);
-  const [freezeNotif,    setFreezeNotif]    = useState(true);
+  const isTaiwan = profile?.target_language === 'taiwan';
+  const [showZhuyin, setShowZhuyin] = useState(profile?.reading_system === 'zhuyin');
   const [qrVisible,        setQrVisible]        = useState(false);
   const [upgradeVisible,   setUpgradeVisible]   = useState(false);
   const [reportBugVisible, setReportBugVisible] = useState(false);
@@ -260,6 +261,40 @@ export default function ProfileScreen() {
     const next = !devIsPremium;
     await AsyncStorage.setItem(DEV_IS_PREMIUM_KEY, String(next));
     setDevIsPremium(next);
+  };
+
+  const [devFreezeBanner, setDevFreezeBanner] = useState(false);
+  const devToggleFreezeBanner = async () => {
+    const lang = profile?.target_language ?? 'mainland';
+    const STREAK_KEY = 'langsnap:streak_v1';
+    if (!devFreezeBanner) {
+      // Simulate 2 missed days — set lastStudyUtcDay to 3 days ago
+      const threeDaysAgo = new Date(Date.now() - 3 * 86_400_000);
+      const raw = await AsyncStorage.getItem(STREAK_KEY);
+      const store = raw ? JSON.parse(raw) : {};
+      store[lang] = { streak: store[lang]?.streak ?? 5, lastStudyUtcDay: utcDayKey(threeDaysAgo) };
+      await AsyncStorage.setItem(STREAK_KEY, JSON.stringify(store));
+      setMissedDays(2);
+    } else {
+      // Reset to today — banner disappears
+      const raw = await AsyncStorage.getItem(STREAK_KEY);
+      const store = raw ? JSON.parse(raw) : {};
+      store[lang] = { streak: store[lang]?.streak ?? 5, lastStudyUtcDay: utcDayKey() };
+      await AsyncStorage.setItem(STREAK_KEY, JSON.stringify(store));
+      setMissedDays(0);
+    }
+    setDevFreezeBanner(prev => !prev);
+  };
+
+
+  const handleReadingSystemChange = async (useZhuyin: boolean) => {
+    setShowZhuyin(useZhuyin);
+    try {
+      await supabase
+        .from('profiles')
+        .update({ reading_system: useZhuyin ? 'zhuyin' : 'pinyin' })
+        .eq('id', profile?.id ?? '');
+    } catch {}
   };
 
   return (
@@ -422,26 +457,38 @@ export default function ProfileScreen() {
         </TouchableOpacity>
 
         {/* ── Settings ─────────────────────────────────────────────────── */}
-        <SectionHeader title="Notifications" />
-        <View style={styles.card}>
-          <SettingRow
-            icon="🔔"
-            label="Practice reminder"
-            value={reminder}
-            onValueChange={setReminder}
-          />
-          <View style={styles.settingDivider} />
-          <SettingRow
-            icon="🧊"
-            label="Streak freeze notification"
-            value={freezeNotif}
-            onValueChange={setFreezeNotif}
-          />
-        </View>
-
+        {/* ── Display (Taiwan only) ────────────────────────────────────── */}
+        {isTaiwan && (
+          <>
+            <SectionHeader title="Display" />
+            <View style={styles.card}>
+              <View style={styles.displaySettingRow}>
+                <Text style={styles.settingRowLabel}>📖  Reading system</Text>
+                <View style={styles.readingToggleGroup}>
+                  <TouchableOpacity
+                    style={[styles.readingToggleBtn, !showZhuyin && styles.readingToggleBtnActive]}
+                    onPress={() => handleReadingSystemChange(false)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.readingToggleBtnText, !showZhuyin && styles.readingToggleBtnTextActive]}>Pinyin</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.readingToggleBtn, showZhuyin && styles.readingToggleBtnActive]}
+                    onPress={() => handleReadingSystemChange(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.readingToggleBtnText, showZhuyin && styles.readingToggleBtnTextActive]}>Zhuyin</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </>
+        )}
         {/* ── Account ──────────────────────────────────────────────────── */}
         <SectionHeader title="Account" />
         <View style={styles.card}>
+          <MenuRow icon="🔔" label="Notifications" onPress={() => router.push('/profile/notifications')} />
+          <View style={styles.settingDivider} />
           <MenuRow icon="🐛" label="Report a bug" onPress={() => setReportBugVisible(true)} />
           <View style={styles.settingDivider} />
           <MenuRow icon="🚪" label="Sign out" onPress={signOut} />
@@ -453,6 +500,8 @@ export default function ProfileScreen() {
               <MenuRow icon="🔄" label="[DEV] Reset as new user" destructive onPress={devResetNewUser} />
               <View style={styles.settingDivider} />
               <MenuRow icon="👑" label={`[DEV] Premium: ${devIsPremium ? 'ON' : 'OFF'}`} onPress={devTogglePremium} />
+              <View style={styles.settingDivider} />
+              <MenuRow icon="🧊" label={`[DEV] Streak freeze banner: ${devFreezeBanner ? 'ON' : 'OFF'}`} onPress={devToggleFreezeBanner} />
             </>
           )}
         </View>
@@ -643,6 +692,16 @@ const styles = StyleSheet.create({
   settingIcon:    { fontSize: 20, width: 28, textAlign: 'center' },
   settingLabel:   { flex: 1, fontSize: 15, fontFamily: 'Volte-Medium', color: TEXT_DARK },
   settingDivider: { height: 1, backgroundColor: BORDER, marginVertical: 16 },
+
+  // Display / reading system toggle
+  displaySettingRow:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  settingRowLabel:          { fontSize: 15, fontFamily: 'Volte-Semibold', color: '#262626' },
+  readingToggleGroup:       { flexDirection: 'row', borderRadius: 8, borderWidth: 1.5, borderColor: '#E8E5DF', overflow: 'hidden' },
+  readingToggleBtn:         { paddingHorizontal: 14, paddingVertical: 7, backgroundColor: '#FAFAF8' },
+  readingToggleBtnActive:   { backgroundColor: '#7D69AB' },
+  readingToggleBtnText:     { fontSize: 13, fontFamily: 'Volte-Semibold', color: '#525252' },
+  readingToggleBtnTextActive: { color: '#FFFFFF' },
+
 
   // Menu
   menuRow:   { flexDirection: 'row', alignItems: 'center', paddingVertical: 0, gap: 12 },
