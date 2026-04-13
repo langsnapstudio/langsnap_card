@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { getEnergyState, getCountdownString } from '@/constants/energy-store';
+import { useSheetDismiss } from '@/hooks/useSheetDismiss';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const BRAND_PURPLE = '#7D69AB';
@@ -25,13 +26,15 @@ const BORDER       = '#E8E5DF';
 type Props = {
   visible: boolean;
   onClose: () => void;
+  languageId: string;
 };
 
-export default function EnergyBottomSheet({ visible, onClose }: Props) {
+export default function EnergyBottomSheet({ visible, onClose, languageId }: Props) {
   const router = useRouter();
 
   const slideAnim = useRef(new Animated.Value(400)).current;
   const fadeAnim  = useRef(new Animated.Value(0)).current;
+  const { dragY, panHandlers } = useSheetDismiss(onClose);
 
   // Refresh countdown every 30s while open
   const [, tick] = useState(0);
@@ -43,6 +46,8 @@ export default function EnergyBottomSheet({ visible, onClose }: Props) {
 
   useEffect(() => {
     if (visible) {
+      slideAnim.setValue(400);
+      dragY.setValue(0);
       Animated.parallel([
         Animated.timing(fadeAnim,  { toValue: 1, duration: 220, useNativeDriver: true }),
         Animated.spring(slideAnim, { toValue: 0, friction: 7, tension: 60, useNativeDriver: true }),
@@ -55,7 +60,7 @@ export default function EnergyBottomSheet({ visible, onClose }: Props) {
     }
   }, [visible]);
 
-  const energy  = getEnergyState();
+  const energy  = getEnergyState(languageId);
   const isEmpty = energy.timeLimited === 0 && energy.noTimeLimit === 0;
   const countdown = getCountdownString(energy.nextRefillAt);
 
@@ -78,8 +83,8 @@ export default function EnergyBottomSheet({ visible, onClose }: Props) {
       </TouchableWithoutFeedback>
 
       {/* Sheet */}
-      <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
-        <View style={styles.handle} />
+      <Animated.View style={[styles.sheet, { transform: [{ translateY: Animated.add(slideAnim, dragY) }] }]}>
+        <View style={styles.handle} {...panHandlers} />
 
         {isEmpty ? <EmptyState countdown={countdown} onGoToChallenges={handleGoToChallenges} onClose={onClose} />
                  : <NormalState energy={energy} countdown={countdown} onClose={onClose} />}

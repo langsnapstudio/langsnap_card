@@ -20,7 +20,7 @@ const EMOJI = {
   musicalNote:   require('@/assets/images/musical-note.png'),
   speechBalloon: require('@/assets/images/speech-balloon.png'),
 };
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -32,7 +32,11 @@ import {
   DEFAULT_REVIEW_CONFIG,
   type ReviewSessionConfig,
   type ReviewMode,
+  type SRSFilter,
 } from '@/constants/review-store';
+import { getDueCards, loadSRS, type SRSStore } from '@/constants/srs-store';
+import { useSheetDismiss } from '@/hooks/useSheetDismiss';
+
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const BRAND_PURPLE = '#7D69AB';
@@ -41,8 +45,6 @@ const TEXT_DARK    = '#262626';
 const TEXT_MUTED   = '#525252';
 const WHITE        = '#FFFFFF';
 
-// ── Mock data ──────────────────────────────────────────────────────────────────
-const LEARNED_COUNT = 30;
 
 const THEME_DECKS = [
   { id: 't1', title: 'Animals',               subtitle: '動物',   image: require('@/assets/images/deck_cover_animals.png') },
@@ -55,6 +57,12 @@ const THEME_DECKS = [
 
 const SESSION_SIZES: Array<15 | 30 | 50> = [15, 30, 50];
 
+const SRS_FILTERS: Array<{ value: SRSFilter; label: string }> = [
+  { value: 'all', label: 'All' },
+  { value: 'due', label: 'Due Today' },
+  { value: 'new', label: 'New Only' },
+];
+
 // ── Review Setup Bottom Sheet ──────────────────────────────────────────────────
 function ReviewSetupSheet({
   visible,
@@ -62,12 +70,14 @@ function ReviewSetupSheet({
   onStart,
   isPremium,
   onUpgrade,
+  isQuiz = false,
 }: {
   visible: boolean;
   onClose: () => void;
   onStart: (config: ReviewSessionConfig) => void;
   isPremium: boolean;
   onUpgrade: () => void;
+  isQuiz?: boolean;
 }) {
   const slideAnim = useRef(new Animated.Value(600)).current;
   const fadeAnim  = useRef(new Animated.Value(0)).current;
@@ -75,12 +85,16 @@ function ReviewSetupSheet({
   const [mode, setMode]                   = useState<ReviewMode>(DEFAULT_REVIEW_CONFIG.mode);
   const [sessionSize, setSessionSize]     = useState<15 | 30 | 50>(DEFAULT_REVIEW_CONFIG.sessionSize);
   const [categoryId, setCategoryId]       = useState(DEFAULT_REVIEW_CONFIG.categoryId);
+  const [srsFilter, setSrsFilter]         = useState<SRSFilter>(DEFAULT_REVIEW_CONFIG.srsFilter);
   const [showIllustration, setShowIllus]  = useState(DEFAULT_REVIEW_CONFIG.showIllustration);
   const [autoplayAudio, setAutoplayAudio] = useState(DEFAULT_REVIEW_CONFIG.autoplayAudio);
   const [autoFlip, setAutoFlip]           = useState(DEFAULT_REVIEW_CONFIG.autoFlip);
+  const { dragY, panHandlers } = useSheetDismiss(onClose);
 
   React.useEffect(() => {
     if (visible) {
+      slideAnim.setValue(600);
+      dragY.setValue(0);
       Animated.parallel([
         Animated.timing(fadeAnim,  { toValue: 1, duration: 200, useNativeDriver: true }),
         Animated.spring(slideAnim, { toValue: 0, tension: 70, friction: 12, useNativeDriver: true }),
@@ -94,7 +108,15 @@ function ReviewSetupSheet({
   }, [visible]);
 
   const handleStart = () => {
-    onStart({ mode, sessionSize, showIllustration, autoplayAudio, autoFlip, categoryId });
+    onStart({
+      mode:             isQuiz ? 'manual' : mode,
+      sessionSize:      isQuiz ? 15 : sessionSize,
+      showIllustration,
+      autoplayAudio:    isQuiz ? false : autoplayAudio,
+      autoFlip:         isQuiz ? false : autoFlip,
+      categoryId,
+      srsFilter,
+    });
   };
 
   return (
@@ -105,11 +127,11 @@ function ReviewSetupSheet({
       </Animated.View>
 
       {/* Sheet panel */}
-      <Animated.View style={[sheet.panel, { transform: [{ translateY: slideAnim }] }]}>
+      <Animated.View style={[sheet.panel, { transform: [{ translateY: Animated.add(slideAnim, dragY) }] }]}>
         {/* Handle + header */}
-        <View style={sheet.handle} />
+        <View style={sheet.handle} {...panHandlers} />
         <View style={sheet.header}>
-          <Text style={sheet.title}>Review Setup</Text>
+          <Text style={sheet.title}>{isQuiz ? 'Quiz Setup' : 'Review Setup'}</Text>
           <TouchableOpacity onPress={onClose} hitSlop={12}>
             <Ionicons name="close" size={22} color={TEXT_DARK} />
           </TouchableOpacity>
@@ -117,44 +139,48 @@ function ReviewSetupSheet({
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={sheet.scrollContent}>
 
-          {/* ── Mode ──────────────────────────────────────────────────────── */}
-          <Text style={sheet.sectionLabel}>Mode</Text>
-          <View style={sheet.modeRow}>
-            <TouchableOpacity
-              style={[sheet.modeBtn, mode === 'manual' && sheet.modeBtnActive]}
-              activeOpacity={0.8}
-              onPress={() => setMode('manual')}
-            >
-              <Image source={EMOJI.backhand} style={sheet.modeEmoji} resizeMode="contain" />
-              <Text style={[sheet.modeBtnText, mode === 'manual' && sheet.modeBtnTextActive]}>Manual</Text>
-              <Text style={[sheet.modeBtnSub, mode === 'manual' && sheet.modeBtnSubActive]}>Swipe to rate</Text>
-            </TouchableOpacity>
+          {/* ── Mode (review only) ────────────────────────────────────────── */}
+          {!isQuiz && (
+            <>
+              <Text style={sheet.sectionLabel}>Mode</Text>
+              <View style={sheet.modeRow}>
+                <TouchableOpacity
+                  style={[sheet.modeBtn, mode === 'manual' && sheet.modeBtnActive]}
+                  activeOpacity={0.8}
+                  onPress={() => setMode('manual')}
+                >
+                  <Image source={EMOJI.backhand} style={sheet.modeEmoji} resizeMode="contain" />
+                  <Text style={[sheet.modeBtnText, mode === 'manual' && sheet.modeBtnTextActive]}>Manual</Text>
+                  <Text style={[sheet.modeBtnSub, mode === 'manual' && sheet.modeBtnSubActive]}>Swipe to rate</Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[sheet.modeBtn, mode === 'autoplay' && sheet.modeBtnActive, !isPremium && sheet.modeBtnLocked]}
-              activeOpacity={0.8}
-              onPress={() => isPremium ? setMode('autoplay') : onUpgrade()}
-            >
-              <Image source={EMOJI.playButton} style={sheet.modeEmoji} resizeMode="contain" />
-              <Text style={[sheet.modeBtnText, mode === 'autoplay' && sheet.modeBtnTextActive]}>Auto-play</Text>
-              <Text style={[sheet.modeBtnSub, mode === 'autoplay' && sheet.modeBtnSubActive]}>ASMR style</Text>
-              {!isPremium && (
-                <View style={sheet.lockBadge}>
-                  <Text style={sheet.lockBadgeText}>👑</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
+                <TouchableOpacity
+                  style={[sheet.modeBtn, mode === 'autoplay' && sheet.modeBtnActive, !isPremium && sheet.modeBtnLocked]}
+                  activeOpacity={0.8}
+                  onPress={() => isPremium ? setMode('autoplay') : onUpgrade()}
+                >
+                  <Image source={EMOJI.playButton} style={sheet.modeEmoji} resizeMode="contain" />
+                  <Text style={[sheet.modeBtnText, mode === 'autoplay' && sheet.modeBtnTextActive]}>Auto-play</Text>
+                  <Text style={[sheet.modeBtnSub, mode === 'autoplay' && sheet.modeBtnSubActive]}>ASMR style</Text>
+                  {!isPremium && (
+                    <View style={sheet.lockBadge}>
+                      <Text style={sheet.lockBadgeText}>👑</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
 
-          {/* ── Session size ──────────────────────────────────────────────── */}
+          {/* ── Session size (15/30/50 for review, 15/30 for quiz) ────────── */}
           <Text style={sheet.sectionLabel}>Cards per session</Text>
           <View style={sheet.chipRow}>
-            {SESSION_SIZES.map(size => (
+            {(isQuiz ? [15, 30] : SESSION_SIZES).map(size => (
               <TouchableOpacity
                 key={size}
                 style={[sheet.chip, sessionSize === size && sheet.chipActive]}
                 activeOpacity={0.8}
-                onPress={() => setSessionSize(size)}
+                onPress={() => setSessionSize(size as 15 | 30 | 50)}
               >
                 <Text style={[sheet.chipText, sessionSize === size && sheet.chipTextActive]}>{size}</Text>
               </TouchableOpacity>
@@ -183,67 +209,90 @@ function ReviewSetupSheet({
             ))}
           </ScrollView>
 
-          {/* ── Toggles ───────────────────────────────────────────────────── */}
-          <Text style={sheet.sectionLabel}>Options</Text>
-          <View style={sheet.optionsCard}>
-            <View style={sheet.toggleRow}>
-              <View style={sheet.toggleInfo}>
-                <View style={sheet.toggleLabelRow}>
-                  <Image source={EMOJI.artistPalette} style={sheet.toggleEmoji} resizeMode="contain" />
-                  <Text style={sheet.toggleLabel}>Show illustrations</Text>
-                </View>
-                <Text style={sheet.toggleSub}>Display artwork on each card</Text>
+          {/* ── Level (review only) ───────────────────────────────────────── */}
+          {!isQuiz && (
+            <>
+              <Text style={sheet.sectionLabel}>Level</Text>
+              <View style={sheet.chipRow}>
+                {SRS_FILTERS.map(f => (
+                  <TouchableOpacity
+                    key={f.value}
+                    style={[sheet.chip, srsFilter === f.value && sheet.chipActive]}
+                    activeOpacity={0.8}
+                    onPress={() => setSrsFilter(f.value)}
+                  >
+                    <Text style={[sheet.chipText, srsFilter === f.value && sheet.chipTextActive]}>{f.label}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-              <Switch
-                value={showIllustration}
-                onValueChange={setShowIllus}
-                trackColor={{ false: '#E0DBF0', true: BRAND_PURPLE }}
-                thumbColor={WHITE}
-              />
-            </View>
-            <View style={sheet.divider} />
-            <View style={sheet.toggleRow}>
-              <View style={sheet.toggleInfo}>
-                <View style={sheet.toggleLabelRow}>
-                  <Image source={EMOJI.musicalNote} style={sheet.toggleEmoji} resizeMode="contain" />
-                  <Text style={sheet.toggleLabel}>Auto-play audio</Text>
-                </View>
-                <Text style={sheet.toggleSub}>Play pronunciation on each card</Text>
-              </View>
-              <Switch
-                value={autoplayAudio}
-                onValueChange={setAutoplayAudio}
-                trackColor={{ false: '#E0DBF0', true: BRAND_PURPLE }}
-                thumbColor={WHITE}
-              />
-            </View>
-            {mode === 'autoplay' && (
-              <>
-                <View style={sheet.divider} />
+            </>
+          )}
+
+          {/* ── Toggles (review only) ─────────────────────────────────────── */}
+          {!isQuiz && (
+            <>
+              <Text style={sheet.sectionLabel}>Options</Text>
+              <View style={sheet.optionsCard}>
                 <View style={sheet.toggleRow}>
                   <View style={sheet.toggleInfo}>
                     <View style={sheet.toggleLabelRow}>
-                      <Image source={EMOJI.speechBalloon} style={sheet.toggleEmoji} resizeMode="contain" />
-                      <Text style={sheet.toggleLabel}>Auto-flip</Text>
+                      <Image source={EMOJI.artistPalette} style={sheet.toggleEmoji} resizeMode="contain" />
+                      <Text style={sheet.toggleLabel}>Show illustrations</Text>
                     </View>
-                    <Text style={sheet.toggleSub}>Reveal the back before advancing</Text>
+                    <Text style={sheet.toggleSub}>Display artwork on each card</Text>
                   </View>
                   <Switch
-                    value={autoFlip}
-                    onValueChange={setAutoFlip}
+                    value={showIllustration}
+                    onValueChange={setShowIllus}
                     trackColor={{ false: '#E0DBF0', true: BRAND_PURPLE }}
                     thumbColor={WHITE}
                   />
                 </View>
-              </>
-            )}
-          </View>
+                <View style={sheet.divider} />
+                <View style={sheet.toggleRow}>
+                  <View style={sheet.toggleInfo}>
+                    <View style={sheet.toggleLabelRow}>
+                      <Image source={EMOJI.musicalNote} style={sheet.toggleEmoji} resizeMode="contain" />
+                      <Text style={sheet.toggleLabel}>Auto-play audio</Text>
+                    </View>
+                    <Text style={sheet.toggleSub}>Play pronunciation on each card</Text>
+                  </View>
+                  <Switch
+                    value={autoplayAudio}
+                    onValueChange={setAutoplayAudio}
+                    trackColor={{ false: '#E0DBF0', true: BRAND_PURPLE }}
+                    thumbColor={WHITE}
+                  />
+                </View>
+                {mode === 'autoplay' && (
+                  <>
+                    <View style={sheet.divider} />
+                    <View style={sheet.toggleRow}>
+                      <View style={sheet.toggleInfo}>
+                        <View style={sheet.toggleLabelRow}>
+                          <Image source={EMOJI.speechBalloon} style={sheet.toggleEmoji} resizeMode="contain" />
+                          <Text style={sheet.toggleLabel}>Auto-flip</Text>
+                        </View>
+                        <Text style={sheet.toggleSub}>Reveal the back before advancing</Text>
+                      </View>
+                      <Switch
+                        value={autoFlip}
+                        onValueChange={setAutoFlip}
+                        trackColor={{ false: '#E0DBF0', true: BRAND_PURPLE }}
+                        thumbColor={WHITE}
+                      />
+                    </View>
+                  </>
+                )}
+              </View>
+            </>
+          )}
 
         </ScrollView>
 
         {/* Start button */}
         <TouchableOpacity style={sheet.startBtn} activeOpacity={0.85} onPress={handleStart}>
-          <Text style={sheet.startBtnText}>Start Review</Text>
+          <Text style={sheet.startBtnText}>{isQuiz ? 'Start Quiz' : 'Start Review'}</Text>
         </TouchableOpacity>
       </Animated.View>
     </Modal>
@@ -253,14 +302,26 @@ function ReviewSetupSheet({
 // ── Review Screen ──────────────────────────────────────────────────────────────
 export default function ReviewScreen() {
   const router = useRouter();
-  const [sheetVisible,    setSheetVisible]    = useState(false);
-  const [upgradeVisible,  setUpgradeVisible]  = useState(false);
+  const [sheetVisible,      setSheetVisible]      = useState(false);
+  const [quizSheetVisible,  setQuizSheetVisible]  = useState(false);
+  const [upgradeVisible,    setUpgradeVisible]    = useState(false);
   const [isPremium, setIsPremium] = useState(false);
+  const [stats, setStats] = useState({ learned: 0, due: 0 });
+
   useEffect(() => {
     AsyncStorage.getItem(DEV_IS_PREMIUM_KEY).then(val => setIsPremium(val === 'true'));
   }, []);
 
-  const handleReviewStart = (config: ReviewSessionConfig) => {
+  useEffect(() => {
+    loadSRS().then((store: SRSStore) => {
+      const now     = new Date();
+      const learned = Object.keys(store).length;
+      const due     = Object.values(store).filter(d => new Date(d.due) <= now).length;
+      setStats({ learned, due });
+    });
+  }, []);
+
+  const handleReviewStart = async (config: ReviewSessionConfig) => {
     setSheetVisible(false);
 
     // Build card pool from selected category
@@ -268,9 +329,18 @@ export default function ReviewScreen() {
       ? Object.values(DECK_DATA)
       : [DECK_DATA[config.categoryId]].filter(Boolean);
 
-    const allCards = sourceDecks.flatMap(deck =>
+    let allCards = sourceDecks.flatMap(deck =>
       deck.packs.flatMap(p => p.cards)
     );
+
+    // Apply SRS level filter
+    if (config.srsFilter === 'due') {
+      const dueIds = new Set(await getDueCards(allCards.map(c => c.id)));
+      allCards = allCards.filter(c => dueIds.has(c.id));
+    } else if (config.srsFilter === 'new') {
+      const store = await loadSRS();
+      allCards = allCards.filter(c => !store[c.id]);
+    }
 
     // Shuffle + slice to session size
     const shuffled = [...allCards].sort(() => Math.random() - 0.5);
@@ -280,33 +350,66 @@ export default function ReviewScreen() {
     router.push('/review/flashcard');
   };
 
-  const handleQuiz = () => {
-    const reviewCards = DECK_DATA['t1'].packs[0].cards;
-    setReviewSession({
-      cards: reviewCards,
-      deckTitle: 'Animals',
-      config: DEFAULT_REVIEW_CONFIG,
-    });
+  const handleQuizStart = async (config: ReviewSessionConfig) => {
+    setQuizSheetVisible(false);
+
+    const sourceDecks = config.categoryId === 'all'
+      ? Object.values(DECK_DATA)
+      : [DECK_DATA[config.categoryId]].filter(Boolean);
+
+    let allCards = sourceDecks.flatMap(deck =>
+      deck.packs.flatMap(p => p.cards)
+    );
+
+    if (config.srsFilter === 'due') {
+      const dueIds = new Set(await getDueCards(allCards.map(c => c.id)));
+      allCards = allCards.filter(c => dueIds.has(c.id));
+    } else if (config.srsFilter === 'new') {
+      const store = await loadSRS();
+      allCards = allCards.filter(c => !store[c.id]);
+    }
+
+    const shuffled = [...allCards].sort(() => Math.random() - 0.5);
+    const cards    = shuffled.slice(0, 15);
+
+    setReviewSession({ cards, deckTitle: 'Quiz', config });
     router.push('/quiz');
   };
 
+  const insets = useSafeAreaInsets();
+
   return (
     <View style={styles.root}>
-      {/* Purple header — extends behind status bar */}
-      <View style={styles.headerBg}>
-        <SafeAreaView edges={['top']} style={styles.headerSafe}>
-          <Text style={styles.headerLabel}>You've learned</Text>
-          <Text style={styles.learnedCount}>{LEARNED_COUNT}</Text>
-          <Text style={styles.wordsLabel}>words</Text>
-        </SafeAreaView>
-      </View>
-
-      {/* Cream content area */}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Purple header — scrolls with content */}
+        <View style={[styles.headerSection, { paddingTop: insets.top + 20 }]}>
+          <View style={styles.statsRow}>
+
+            {/* Total acquired */}
+            <View style={styles.statTile}>
+              <Text style={styles.statCount}>{stats.learned}</Text>
+              <Text style={styles.statLabel}>flashcards</Text>
+            </View>
+
+            <View style={styles.statDivider} />
+
+            {/* Need review — more prominent */}
+            <View style={styles.statTile}>
+              <View style={styles.dueCountRow}>
+                <Text style={styles.dueCount}>{stats.due}</Text>
+              </View>
+              <Text style={styles.dueLabel}>need review</Text>
+            </View>
+
+          </View>
+        </View>
+
+        {/* Cream content area */}
+        <View style={styles.creamSection}>
         {/* Action card (Review + Quiz) */}
         <View style={styles.actionCard}>
           <TouchableOpacity
@@ -314,9 +417,7 @@ export default function ReviewScreen() {
             activeOpacity={0.75}
             onPress={() => setSheetVisible(true)}
           >
-            <View style={[styles.actionIconCircle, { backgroundColor: '#EDE9F5' }]}>
-              <Ionicons name="play" size={22} color={BRAND_PURPLE} />
-            </View>
+            <Text style={styles.actionEmoji}>🧠</Text>
             <Text style={styles.actionLabel}>Review</Text>
           </TouchableOpacity>
 
@@ -325,11 +426,9 @@ export default function ReviewScreen() {
           <TouchableOpacity
             style={styles.actionBtn}
             activeOpacity={0.75}
-            onPress={handleQuiz}
+            onPress={() => setQuizSheetVisible(true)}
           >
-            <View style={[styles.actionIconCircle, { backgroundColor: '#EDE9F5' }]}>
-              <Ionicons name="game-controller" size={22} color={BRAND_PURPLE} />
-            </View>
+            <Text style={styles.actionEmoji}>🎮</Text>
             <Text style={styles.actionLabel}>Quiz</Text>
           </TouchableOpacity>
         </View>
@@ -338,7 +437,7 @@ export default function ReviewScreen() {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Themes</Text>
           <TouchableOpacity activeOpacity={0.7}>
-            <Text style={styles.showAll}>show all</Text>
+            <Text style={styles.showAll}>Show all</Text>
           </TouchableOpacity>
         </View>
 
@@ -362,6 +461,7 @@ export default function ReviewScreen() {
             </TouchableOpacity>
           ))}
         </ScrollView>
+        </View>{/* end creamSection */}
       </ScrollView>
 
       {/* Review setup bottom sheet */}
@@ -371,6 +471,16 @@ export default function ReviewScreen() {
         onStart={handleReviewStart}
         isPremium={isPremium}
         onUpgrade={() => { setSheetVisible(false); setUpgradeVisible(true); }}
+      />
+
+      {/* Quiz setup bottom sheet */}
+      <ReviewSetupSheet
+        isQuiz
+        visible={quizSheetVisible}
+        onClose={() => setQuizSheetVisible(false)}
+        onStart={handleQuizStart}
+        isPremium={isPremium}
+        onUpgrade={() => { setQuizSheetVisible(false); setUpgradeVisible(true); }}
       />
       <UpgradeModal
         visible={upgradeVisible}
@@ -385,36 +495,28 @@ const DECK_W = 160;
 const DECK_H = 160;
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: BRAND_PURPLE },
+  root: { flex: 1, backgroundColor: BG_CREAM },
 
-  headerBg:   { backgroundColor: BRAND_PURPLE },
-  headerSafe: { alignItems: 'center', paddingBottom: 32, paddingTop: 8 },
-  headerLabel: {
-    fontSize: 15,
-    color: 'rgba(255,255,255,0.75)',
-    fontFamily: 'Volte-Medium',
-    marginBottom: 8,
-  },
-  learnedCount: {
-    fontSize: 72,
-    color: WHITE,
-    fontFamily: 'Volte-Semibold',
-    lineHeight: 80,
-  },
-  wordsLabel: {
-    fontSize: 18,
-    color: 'rgba(255,255,255,0.75)',
-    fontFamily: 'Volte-Medium',
-    marginTop: 2,
-  },
+  headerSection: { backgroundColor: BRAND_PURPLE, paddingBottom: 28, paddingHorizontal: 24 },
+  statsRow:    { flexDirection: 'row', alignItems: 'center' },
+  statTile:    { flex: 1, alignItems: 'center' },
+  statCount:   { fontSize: 28, fontFamily: 'Volte-Semibold', color: WHITE, lineHeight: 34 },
+  statLabel:   { fontSize: 13, fontFamily: 'Volte-Medium', color: 'rgba(255,255,255,0.6)', marginTop: 2 },
+  statDivider: { width: 1, height: 40, backgroundColor: 'rgba(255,255,255,0.2)' },
 
-  scroll: {
-    flex: 1,
+  // "Need review" — larger + warm accent to stand out
+  dueCountRow: { flexDirection: 'row', alignItems: 'baseline' },
+  dueCount:    { fontSize: 44, fontFamily: 'Volte-Semibold', color: WHITE, lineHeight: 50 },
+  dueLabel:    { fontSize: 13, fontFamily: 'Volte-Semibold', color: 'rgba(255,255,255,0.85)', marginTop: 2 },
+
+  scroll: { flex: 1 },
+  scrollContent: { paddingBottom: 40 },
+  creamSection: {
     backgroundColor: BG_CREAM,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    paddingTop: 24,
   },
-  scrollContent: { paddingTop: 24, paddingBottom: 40 },
 
   actionCard: {
     flexDirection: 'row',
@@ -436,10 +538,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
   },
-  actionIconCircle: {
-    width: 44, height: 44, borderRadius: 22,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  actionEmoji: { fontSize: 28 },
   actionLabel: { fontSize: 15, color: TEXT_DARK, fontFamily: 'Volte-Semibold' },
   actionDivider: { width: 1, backgroundColor: '#E8E5DF', marginVertical: 4 },
 
@@ -460,8 +559,8 @@ const styles = StyleSheet.create({
     borderRadius: 16, marginBottom: 10, overflow: 'hidden',
   },
   deckImage:    { width: '100%', height: '100%' },
-  deckTitle:    { fontSize: 13, color: TEXT_DARK,  fontFamily: 'Volte-Semibold', marginBottom: 2 },
-  deckSubtitle: { fontSize: 11, color: TEXT_MUTED, fontFamily: 'Volte' },
+  deckTitle:    { fontSize: 15, color: TEXT_DARK,  fontFamily: 'Volte-Semibold', marginBottom: 2 },
+  deckSubtitle: { fontSize: 13, color: TEXT_MUTED, fontFamily: 'Volte' },
 });
 
 // ── Sheet styles ───────────────────────────────────────────────────────────────

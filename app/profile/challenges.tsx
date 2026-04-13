@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { Audio } from 'expo-av';
 import { getFeats, claimFeat, addWordsLearned } from '@/constants/feat-store';
 import type { FeatWithProgress } from '@/constants/feat-store';
+import { useSheetDismiss } from '@/hooks/useSheetDismiss';
 
 const SCREEN_WIDTH  = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -95,9 +96,12 @@ function ClaimSuccessSheet({ visible, reward, onClose, onActivate }: {
   const slideAnim = useRef(new Animated.Value(400)).current;
   const fadeAnim  = useRef(new Animated.Value(0)).current;
   const soundRef  = useRef<Audio.Sound | null>(null);
+  const { dragY, panHandlers } = useSheetDismiss(onClose);
 
   useEffect(() => {
     if (visible) {
+      slideAnim.setValue(400);
+      dragY.setValue(0);
       Animated.parallel([
         Animated.timing(fadeAnim,  { toValue: 1, duration: 200, useNativeDriver: true }),
         Animated.spring(slideAnim, { toValue: 0, friction: 7, tension: 55, useNativeDriver: true }),
@@ -137,8 +141,8 @@ function ClaimSuccessSheet({ visible, reward, onClose, onActivate }: {
         <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)', opacity: fadeAnim }]} />
       </Pressable>
 
-      <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
-        <View style={styles.sheetHandle} />
+      <Animated.View style={[styles.sheet, { transform: [{ translateY: Animated.add(slideAnim, dragY) }] }]}>
+        <View style={styles.sheetHandle} {...panHandlers} />
 
         <View style={styles.sheetContent}>
           <Text style={styles.sheetEmoji}>⚡</Text>

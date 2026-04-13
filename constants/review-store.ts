@@ -6,6 +6,8 @@ import type { Card } from './mock-packs';
 
 export type ReviewMode = 'manual' | 'autoplay';
 
+export type SRSFilter = 'all' | 'due' | 'new';
+
 export type ReviewSessionConfig = {
   mode:             ReviewMode;
   sessionSize:      15 | 30 | 50;
@@ -13,6 +15,7 @@ export type ReviewSessionConfig = {
   autoplayAudio:    boolean;
   autoFlip:         boolean; // autoplay only: flip to back before advancing
   categoryId:       string;  // deck id or 'all'
+  srsFilter:        SRSFilter;
 };
 
 export const DEFAULT_REVIEW_CONFIG: ReviewSessionConfig = {
@@ -22,6 +25,7 @@ export const DEFAULT_REVIEW_CONFIG: ReviewSessionConfig = {
   autoplayAudio:    true,
   autoFlip:         false,
   categoryId:       'all',
+  srsFilter:        'due',
 };
 
 export type ReviewSessionData = {

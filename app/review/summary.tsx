@@ -10,9 +10,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { getReviewSummary } from '@/constants/review-store';
+import { getReviewSummary, getReviewSession } from '@/constants/review-store';
 import type { Card } from '@/constants/mock-packs';
 import { cardTextColor } from '@/constants/mock-packs';
 import { incrementFeat } from '@/constants/feat-store';
@@ -83,6 +83,40 @@ function Confetti() {
     </View>
   );
 }
+
+// ── ASMR / autoplay header — animated word count ──────────────────────────────
+function AutoplayHeader({ total }: { total: number }) {
+  const animVal = useRef(new Animated.Value(0)).current;
+  const [displayCount, setDisplayCount] = useState(0);
+
+  useEffect(() => {
+    const id = animVal.addListener(({ value }) => setDisplayCount(Math.round(value)));
+    Animated.timing(animVal, {
+      toValue: total, duration: 900, easing: Easing.out(Easing.cubic), useNativeDriver: false,
+    }).start(() => { setDisplayCount(total); animVal.removeListener(id); });
+    return () => animVal.removeAllListeners();
+  }, []);
+
+  return (
+    <View style={asmr.wrapper}>
+      <Text style={asmr.emoji}>🎧</Text>
+      <View style={asmr.countRow}>
+        <Text style={asmr.count}>{displayCount}</Text>
+        <Text style={asmr.countLabel}>words{'\n'}reviewed</Text>
+      </View>
+      <Text style={asmr.sub}>Great listening session!</Text>
+    </View>
+  );
+}
+
+const asmr = StyleSheet.create({
+  wrapper:    { alignItems: 'center', paddingHorizontal: 28, paddingTop: 20, paddingBottom: 32 },
+  emoji:      { fontSize: 40, marginBottom: 16 },
+  countRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  count:      { fontSize: 80, fontFamily: 'Volte-Semibold', color: WHITE, lineHeight: 88 },
+  countLabel: { fontSize: 20, fontFamily: 'Volte-Semibold', color: 'rgba(255,255,255,0.65)', lineHeight: 26 },
+  sub:        { fontSize: 15, fontFamily: 'Volte-Medium', color: 'rgba(255,255,255,0.6)' },
+});
 
 // ── Animated progress bar ──────────────────────────────────────────────────────
 const ANIM_DURATION = 1200;
@@ -165,12 +199,20 @@ export default function ReviewSummaryScreen() {
   const router  = useRouter();
   const { profile } = useAuth();
   const summary = getReviewSummary();
+  const session = getReviewSession();
 
-  const remembered = summary?.remembered ?? [];
-  const forgot     = summary?.forgot ?? [];
-  const total      = remembered.length + forgot.length;
+  const isAutoplay = session?.config?.mode === 'autoplay';
 
-  const showConfetti = total > 0 && remembered.length / total >= 0.8;
+  const remembered   = summary?.remembered ?? [];
+  const forgot       = summary?.forgot ?? [];
+  const manualTotal  = remembered.length + forgot.length;
+
+  // For autoplay: all cards reviewed (no rating split)
+  const autoplayCards = session?.cards ?? [];
+
+  const showConfetti = isAutoplay
+    ? autoplayCards.length > 0
+    : manualTotal > 0 && remembered.length / manualTotal >= 0.8;
 
   // Record study session + feats on mount
   useEffect(() => {
@@ -180,55 +222,70 @@ export default function ReviewSummaryScreen() {
     incrementFeat('first_review');
   }, []);
 
+  const insets = useSafeAreaInsets();
+
   return (
     <View style={styles.root}>
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
 
-        {/* Purple header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>How you did this time</Text>
-          <ProgressBar remembered={remembered.length} total={total} />
-        </View>
-
-        {/* Card list */}
+        {/* Card list — header scrolls with content */}
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {forgot.length > 0 && (
-            <>
-              <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionTitle, { color: RED }]}>FORGOT</Text>
-                <Text style={[styles.sectionCount, { color: RED }]}>{forgot.length}</Text>
-              </View>
-              {forgot.map((card, i) => <CardRow key={`forgot-${i}-${card.id}`} card={card} />)}
-            </>
-          )}
+          {/* Purple header inside scroll */}
+          <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
+            {isAutoplay ? (
+              <AutoplayHeader total={autoplayCards.length} />
+            ) : (
+              <>
+                <Text style={styles.title}>How you did this time</Text>
+                <ProgressBar remembered={remembered.length} total={manualTotal} />
+              </>
+            )}
+          </View>
 
-          {remembered.length > 0 && (
+          {isAutoplay ? (
             <>
               <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionTitle, { color: GREEN }]}>REMEMBER</Text>
-                <Text style={[styles.sectionCount, { color: GREEN }]}>{remembered.length}</Text>
+                <Text style={[styles.sectionTitle, { color: BRAND_PURPLE }]}>REVIEWED</Text>
+                <Text style={[styles.sectionCount, { color: BRAND_PURPLE }]}>{autoplayCards.length}</Text>
               </View>
-              {remembered.map((card, i) => <CardRow key={`remembered-${i}-${card.id}`} card={card} />)}
+              {autoplayCards.map((card, i) => <CardRow key={`ap-${i}-${card.id}`} card={card} />)}
+            </>
+          ) : (
+            <>
+              {forgot.length > 0 && (
+                <>
+                  <View style={styles.sectionHeader}>
+                    <Text style={[styles.sectionTitle, { color: RED }]}>FORGOT</Text>
+                    <Text style={[styles.sectionCount, { color: RED }]}>{forgot.length}</Text>
+                  </View>
+                  {forgot.map((card, i) => <CardRow key={`forgot-${i}-${card.id}`} card={card} />)}
+                </>
+              )}
+              {remembered.length > 0 && (
+                <>
+                  <View style={styles.sectionHeader}>
+                    <Text style={[styles.sectionTitle, { color: GREEN }]}>REMEMBER</Text>
+                    <Text style={[styles.sectionCount, { color: GREEN }]}>{remembered.length}</Text>
+                  </View>
+                  {remembered.map((card, i) => <CardRow key={`remembered-${i}-${card.id}`} card={card} />)}
+                </>
+              )}
             </>
           )}
         </ScrollView>
 
-        {/* Done button */}
-        <TouchableOpacity
-          style={styles.doneBtn}
-          activeOpacity={0.85}
-          onPress={() => router.replace('/(tabs)/review')}
-        >
-          <Text style={styles.doneBtnText}>Done</Text>
-        </TouchableOpacity>
+      {/* Done button — fixed at bottom */}
+      <TouchableOpacity
+        style={[styles.doneBtn, { marginBottom: insets.bottom + 8 }]}
+        activeOpacity={0.85}
+        onPress={() => router.replace('/(tabs)/review')}
+      >
+        <Text style={styles.doneBtnText}>Done</Text>
+      </TouchableOpacity>
 
-      </SafeAreaView>
-
-      {/* Confetti — only when ≥ 80% remembered */}
       {showConfetti && <Confetti />}
     </View>
   );
@@ -236,23 +293,22 @@ export default function ReviewSummaryScreen() {
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root:    { flex: 1, backgroundColor: WHITE, overflow: 'hidden' },
-  safeArea:{ flex: 1 },
+  root:    { flex: 1, backgroundColor: '#F8F5EF', overflow: 'hidden' },
 
   header: {
     backgroundColor: BRAND_PURPLE,
+    paddingBottom: 4,
   },
   title: {
     fontSize: 22,
     fontFamily: 'Volte-Semibold',
     color: WHITE,
     textAlign: 'center',
-    paddingTop: 28,
     paddingHorizontal: 24,
     marginBottom: 16,
   },
 
-  scroll:        { flex: 1, backgroundColor: '#F8F5EF' },
+  scroll:        { flex: 1 },
   scrollContent: { paddingBottom: 16 },
 
   sectionHeader: {

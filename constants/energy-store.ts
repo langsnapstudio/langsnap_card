@@ -1,50 +1,60 @@
-// ── Energy store — mock data (replace with real backend later) ─────────────────
+// ── Energy store — per-language, in-memory (replace with AsyncStorage later) ───
 
-// Time-limited energy refills every 24h
-// No-time-limit energy is earned from Feats, never expires
+const REFILL_HOURS = 6; // mock: 6h, production would be 24h
 
 type EnergyState = {
-  timeLimited:    number;  // current time-limited energy count
-  noTimeLimit:    number;  // current no-time-limit energy count
-  nextRefillAt:   Date;    // when time-limited energy next refills
+  timeLimited:  number;
+  noTimeLimit:  number;
+  nextRefillAt: Date;
 };
 
-// Mock: 0 time-limited (depleted), 3 no-time-limit, refills in ~6 hours
-const REFILL_HOURS = 6;
-const nextRefill = new Date(Date.now() + REFILL_HOURS * 60 * 60 * 1000);
+type EnergyStore = Record<string, EnergyState>; // languageId → state
 
-let _state: EnergyState = {
-  timeLimited:  0,
-  noTimeLimit:  3,
-  nextRefillAt: nextRefill,
-};
+// Per-language in-memory store
+const _store: EnergyStore = {};
 
-export function getEnergyState(): EnergyState {
-  return { ..._state };
+function getOrInit(languageId: string): EnergyState {
+  if (!_store[languageId]) {
+    _store[languageId] = {
+      timeLimited:  0,
+      noTimeLimit:  3,
+      nextRefillAt: new Date(Date.now() + REFILL_HOURS * 60 * 60 * 1000),
+    };
+  }
+  return _store[languageId];
 }
 
-export function getTotalEnergy(): number {
-  return _state.timeLimited + _state.noTimeLimit;
+export function getEnergyState(languageId: string): EnergyState {
+  return { ...getOrInit(languageId) };
 }
 
-export function hasEnergy(): boolean {
-  return getTotalEnergy() > 0;
+export function getTotalEnergy(languageId: string): number {
+  const s = getOrInit(languageId);
+  return s.timeLimited + s.noTimeLimit;
 }
 
-export function consumeEnergy(amount = 1): boolean {
-  const total = getTotalEnergy();
+export function hasEnergy(languageId: string): boolean {
+  return getTotalEnergy(languageId) > 0;
+}
+
+export function consumeEnergy(languageId: string, amount = 1): boolean {
+  const s = getOrInit(languageId);
+  const total = s.timeLimited + s.noTimeLimit;
   if (total < amount) return false;
 
-  // Consume no-time-limit first, then time-limited
   let remaining = amount;
-  if (_state.noTimeLimit >= remaining) {
-    _state.noTimeLimit -= remaining;
+  if (s.noTimeLimit >= remaining) {
+    s.noTimeLimit -= remaining;
   } else {
-    remaining -= _state.noTimeLimit;
-    _state.noTimeLimit = 0;
-    _state.timeLimited = Math.max(0, _state.timeLimited - remaining);
+    remaining -= s.noTimeLimit;
+    s.noTimeLimit = 0;
+    s.timeLimited = Math.max(0, s.timeLimited - remaining);
   }
   return true;
+}
+
+export function addBonusEnergy(languageId: string, amount: number): void {
+  getOrInit(languageId).noTimeLimit += amount;
 }
 
 // Helpers for countdown display
@@ -58,8 +68,9 @@ export function getCountdownString(targetDate: Date): string {
   return `${minutes}m`;
 }
 
-// Simulate having energy (for testing) — toggle between empty and full
-export function debugSetEnergy(timeLimited: number, noTimeLimit: number) {
-  _state.timeLimited = timeLimited;
-  _state.noTimeLimit = noTimeLimit;
+// Dev helper
+export function debugSetEnergy(languageId: string, timeLimited: number, noTimeLimit: number) {
+  const s = getOrInit(languageId);
+  s.timeLimited  = timeLimited;
+  s.noTimeLimit  = noTimeLimit;
 }

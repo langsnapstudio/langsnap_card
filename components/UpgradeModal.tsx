@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
+import { useSheetDismiss } from '@/hooks/useSheetDismiss';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const BRAND_PURPLE  = '#7D69AB';
@@ -100,9 +101,12 @@ function PremiumSuccessSheet({ visible, onClose }: { visible: boolean; onClose: 
   const slideAnim = useRef(new Animated.Value(500)).current;
   const fadeAnim  = useRef(new Animated.Value(0)).current;
   const soundRef  = useRef<Audio.Sound | null>(null);
+  const { dragY, panHandlers } = useSheetDismiss(onClose);
 
   useEffect(() => {
     if (visible) {
+      slideAnim.setValue(500);
+      dragY.setValue(0);
       Animated.parallel([
         Animated.timing(fadeAnim,  { toValue: 1, duration: 200, useNativeDriver: true }),
         Animated.spring(slideAnim, { toValue: 0, friction: 7, tension: 55, useNativeDriver: true }),
@@ -141,8 +145,8 @@ function PremiumSuccessSheet({ visible, onClose }: { visible: boolean; onClose: 
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
       <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)', opacity: fadeAnim }]} />
 
-      <Animated.View style={[successStyles.sheet, { transform: [{ translateY: slideAnim }] }]}>
-        <View style={successStyles.handle} />
+      <Animated.View style={[successStyles.sheet, { transform: [{ translateY: Animated.add(slideAnim, dragY) }] }]}>
+        <View style={successStyles.handle} {...panHandlers} />
 
         {/* Crown */}
         <View style={successStyles.crownWrap}>

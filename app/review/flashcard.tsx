@@ -21,6 +21,7 @@ import { cardTextColor } from '@/constants/mock-packs';
 import type { ExampleSentence } from '@/constants/mock-packs';
 import { saveSRSResults } from '@/constants/srs-store';
 import { useAuth } from '@/lib/auth';
+import { useSheetDismiss } from '@/hooks/useSheetDismiss';
 
 // ── Layout ────────────────────────────────────────────────────────────────────
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
@@ -76,8 +77,11 @@ export default function ReviewFlashcardScreen() {
   const [showSettings,  setShowSettings]  = useState(false);
   const settingsSlide = useRef(new Animated.Value(300)).current;
   const settingsFade  = useRef(new Animated.Value(0)).current;
+  const { dragY: settingsDragY, panHandlers: settingsPanHandlers } = useSheetDismiss(closeSettings);
 
   function openSettings() {
+    settingsSlide.setValue(300);
+    settingsDragY.setValue(0);
     setShowSettings(true);
     Animated.parallel([
       Animated.timing(settingsFade,  { toValue: 1, duration: 200, useNativeDriver: true }),
@@ -117,6 +121,10 @@ export default function ReviewFlashcardScreen() {
 
   // Timer ref for autoplay auto-advance
   const autoplayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Pause / resume state (autoplay only)
+  const [isPaused, setIsPaused] = useState(false);
+  const isPausedRef = useRef(false);
 
   // ── Slot animated values ──────────────────────────────────────────────────
   const slotOpacity = useRef(
@@ -165,12 +173,13 @@ export default function ReviewFlashcardScreen() {
 
   // ── Autoplay timer ────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!isAutoplay) return;
+    if (!isAutoplay || isPaused) return;
     const autoFlip = config?.autoFlip ?? false;
 
     if (autoFlip) {
       // Phase 1: show front for 2s, then flip to back
       autoplayTimerRef.current = setTimeout(() => {
+        if (isPausedRef.current) return;
         const front = frontSlotRef.current;
         isFlippedRef.current = true;
         Animated.spring(slotFlip[front], {
@@ -178,11 +187,13 @@ export default function ReviewFlashcardScreen() {
         }).start();
         // Phase 2: show back for 2s, then exit
         autoplayTimerRef.current = setTimeout(() => {
+          if (isPausedRef.current) return;
           triggerAutoplayExitRef.current();
         }, 2000);
       }, 2000);
     } else {
       autoplayTimerRef.current = setTimeout(() => {
+        if (isPausedRef.current) return;
         triggerAutoplayExitRef.current();
       }, 4000);
     }
@@ -190,7 +201,59 @@ export default function ReviewFlashcardScreen() {
     return () => {
       if (autoplayTimerRef.current) clearTimeout(autoplayTimerRef.current);
     };
-  }, [globalIndex, isAutoplay]);
+  }, [globalIndex, isAutoplay, isPaused]);
+
+  // ── Pause / resume toggle (autoplay mode) ─────────────────────────────────
+  const togglePause = () => {
+    const next = !isPausedRef.current;
+    isPausedRef.current = next;
+    setIsPaused(next);
+    if (next && autoplayTimerRef.current) {
+      clearTimeout(autoplayTimerRef.current);
+    }
+    // Un-pausing re-triggers the timer effect via isPaused state change
+  };
+
+  // ── Skip to next card (clears pending timer first to avoid double-advance) ─
+  const skipNext = () => {
+    if (autoplayTimerRef.current) clearTimeout(autoplayTimerRef.current);
+    triggerAutoplayExitRef.current();
+  };
+
+  // ── Go to previous card (reset slot state to targetIdx) ───────────────────
+  const goToPrevious = () => {
+    const targetIdx = Math.max(0, globalIndexRef.current - 1);
+    if (targetIdx === globalIndexRef.current) return; // already at first card
+
+    if (autoplayTimerRef.current) clearTimeout(autoplayTimerRef.current);
+
+    // Reset all three slots to position targetIdx, targetIdx+1, targetIdx+2
+    const qLen = queueRef.current.length;
+    frontSlotRef.current  = 0;
+    slotCardsRef.current  = [targetIdx, targetIdx + 1, targetIdx + 2];
+    isFlippedRef.current  = false;
+    isPlayingRef.current  = false;
+    setIsPlaying(false);
+    soundRef.current?.unloadAsync();
+    soundRef.current = null;
+
+    slotFlip[0].setValue(0);    slotFlip[1].setValue(0);    slotFlip[2].setValue(0);
+    slotX[0].setValue(0);       slotX[1].setValue(0);       slotX[2].setValue(0);
+    slotDy[0].setValue(0);      slotDy[1].setValue(-12);    slotDy[2].setValue(-24);
+    slotScale[0].setValue(1);   slotScale[1].setValue(REL_MID); slotScale[2].setValue(REL_BACK);
+    slotOpacity[0].setValue(targetIdx     < qLen ? 1.0 : 0);
+    slotOpacity[1].setValue(targetIdx + 1 < qLen ? 1.0 : 0);
+    slotOpacity[2].setValue(targetIdx + 2 < qLen ? 1.0 : 0);
+
+    globalIndexRef.current = targetIdx;
+    setGlobalIndex(targetIdx);
+
+    // Play audio for the card we're returning to
+    const audio = queueRef.current[targetIdx]?.audioUrl;
+    if (autoPlayRef.current && audio) {
+      setTimeout(() => playAudio(audio as number), 200);
+    }
+  };
 
   // ── Audio ─────────────────────────────────────────────────────────────────
   async function playAudio(audioSrc: number | string) {
@@ -560,6 +623,23 @@ export default function ReviewFlashcardScreen() {
         </View>
       )}
 
+      {/* Autoplay controls — previous / pause / next, Spotify-style */}
+      {isAutoplay && (
+        <View style={styles.autoplayControls}>
+          <TouchableOpacity onPress={goToPrevious} hitSlop={12} style={styles.autoplaySkipBtn}>
+            <Ionicons name="play-skip-back" size={26} color="rgba(255,255,255,0.7)" />
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={togglePause} style={styles.autoplayPauseBtn} activeOpacity={0.8}>
+            <Ionicons name={isPaused ? 'play' : 'pause'} size={28} color="white" />
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={skipNext} hitSlop={12} style={styles.autoplaySkipBtn}>
+            <Ionicons name="play-skip-forward" size={26} color="rgba(255,255,255,0.7)" />
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Top nav */}
       <View style={styles.navBar}>
         <View style={styles.progressTrack}>
@@ -582,8 +662,8 @@ export default function ReviewFlashcardScreen() {
           <Animated.View style={[styles.settingsOverlay, { opacity: settingsFade }]}>
             <Pressable style={StyleSheet.absoluteFill} onPress={closeSettings} />
           </Animated.View>
-          <Animated.View style={[styles.settingsSheet, { transform: [{ translateY: settingsSlide }] }]}>
-            <View style={styles.sheetHandle} />
+          <Animated.View style={[styles.settingsSheet, { transform: [{ translateY: Animated.add(settingsSlide, settingsDragY) }] }]}>
+            <View style={styles.sheetHandle} {...settingsPanHandlers} />
             <Text style={styles.sheetTitle}>Settings</Text>
 
             {isTaiwan && (
@@ -702,6 +782,29 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   hintText: { fontSize: 13, color: 'rgba(255,255,255,0.55)', fontFamily: 'Volte-Semibold' },
+
+  // Autoplay controls — pause/resume + skip, shown in place of swipe hints
+  autoplayControls: {
+    position: 'absolute',
+    bottom: 52,
+    left: 0, right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 24,
+  },
+  autoplayPauseBtn: {
+    width: 56, height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  autoplaySkipBtn: {
+    width: 44, height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   // Top nav
   navBar:        { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 50 },

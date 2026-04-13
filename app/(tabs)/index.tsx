@@ -18,6 +18,8 @@ import { Ionicons } from '@expo/vector-icons';
 import EnergyBottomSheet from '@/components/EnergyBottomSheet';
 import { getTotalEnergy } from '@/constants/energy-store';
 import { useAuth } from '@/lib/auth';
+import { useSheetDismiss } from '@/hooks/useSheetDismiss';
+import { getMissedDays } from '@/constants/streak-store';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const BRAND_PURPLE = '#7D69AB';
@@ -93,7 +95,7 @@ function DeckSection<T extends { id: string }>({
         <Text style={styles.sectionTitle}>{title}</Text>
         {hasMore && (
           <TouchableOpacity activeOpacity={0.7} onPress={onShowAll}>
-            <Text style={styles.showAll}>show all</Text>
+            <Text style={styles.showAll}>Show all</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -113,15 +115,6 @@ function WelcomeSheet({ visible, onClose }: { visible: boolean; onClose: () => v
   const slideAnim = useRef(new Animated.Value(400)).current;
   const fadeAnim  = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
-        Animated.spring(slideAnim, { toValue: 0, tension: 65, friction: 11, useNativeDriver: true }),
-      ]).start();
-    }
-  }, [visible]);
-
   const handleClose = () => {
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
@@ -129,14 +122,27 @@ function WelcomeSheet({ visible, onClose }: { visible: boolean; onClose: () => v
     ]).start(() => onClose());
   };
 
+  const { dragY, panHandlers } = useSheetDismiss(handleClose);
+
+  useEffect(() => {
+    if (visible) {
+      slideAnim.setValue(400);
+      dragY.setValue(0);
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+        Animated.spring(slideAnim, { toValue: 0, tension: 65, friction: 11, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [visible]);
+
   return (
     <Modal visible={visible} transparent animationType="none">
       <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
       </Animated.View>
 
-      <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
-        <View style={styles.sheetHandle} />
+      <Animated.View style={[styles.sheet, { transform: [{ translateY: Animated.add(slideAnim, dragY) }] }]}>
+        <View style={styles.sheetHandle} {...panHandlers} />
 
         <View style={styles.creatorAvatar}>
           <Image
@@ -235,10 +241,14 @@ export default function LearnScreen() {
   const [showWelcome,     setShowWelcome]     = useState(false);
   const [showEnergy,      setShowEnergy]      = useState(false);
   const [showEnergyGuide, setShowEnergyGuide] = useState(false);
-  const energyCount = getTotalEnergy();
-
   const langKey  = profile?.target_language ?? 'mainland';
   const langConf = LANGUAGE_MAP[langKey] ?? LANGUAGE_MAP['mainland'];
+  const energyCount = getTotalEnergy(langKey);
+  const [missedDays, setMissedDays] = useState(0);
+
+  useEffect(() => {
+    getMissedDays(langKey).then(setMissedDays);
+  }, [langKey]);
 
   useEffect(() => {
     AsyncStorage.getItem(WELCOME_SHOWN_KEY).then(val => {
@@ -266,32 +276,41 @@ export default function LearnScreen() {
     AsyncStorage.setItem(ENERGY_GUIDE_SHOWN_KEY, 'true');
   };
 
+  const insets = useSafeAreaInsets();
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-
-      {/* ── Top bar: language indicator (left) + energy badge (right) ───── */}
-      <View style={styles.topBar}>
-        {/* Language indicator */}
-        <TouchableOpacity
-          style={styles.langBadge}
-          activeOpacity={0.8}
-          onPress={() => router.push('/profile/courses')}
-        >
-          <Text style={styles.langEmoji}>{langConf.emoji}</Text>
-          <Text style={styles.langLabel}>{langConf.shortLabel}</Text>
-        </TouchableOpacity>
-
-        {/* Energy badge */}
-        <TouchableOpacity style={styles.energyBadge} activeOpacity={0.8} onPress={() => setShowEnergy(true)}>
-          <Ionicons name="flash" size={14} color="#F5C842" />
-          <Text style={styles.energyCount}>{energyCount}</Text>
-        </TouchableOpacity>
-      </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+
+        {/* ── Top bar: language indicator (left) + energy badge (right) ───── */}
+        <View style={styles.topBar}>
+          {/* Language indicator */}
+          <TouchableOpacity
+            style={styles.langBadge}
+            activeOpacity={0.6}
+            onPress={() => router.push('/profile/courses')}
+          >
+            <Text style={styles.langEmoji}>{langConf.emoji}</Text>
+            <Text style={styles.langLabel}>{langConf.shortLabel}</Text>
+          </TouchableOpacity>
+
+          {/* Energy badge */}
+          <TouchableOpacity style={styles.energyBadge} activeOpacity={0.8} onPress={() => setShowEnergy(true)}>
+            <Ionicons name="flash" size={14} color="#F5C842" />
+            <Text style={styles.energyCount}>{energyCount}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Streak freeze banner */}
+        {missedDays > 0 && (
+          <View style={styles.freezeBanner}>
+            <Text style={styles.freezeBannerText}>🧊 Freeze active · Study today to protect your streak</Text>
+          </View>
+        )}
 
         {/* ── HSK section ───────────────────────────────────────────────── */}
         <DeckSection
@@ -324,7 +343,7 @@ export default function LearnScreen() {
       </ScrollView>
 
       <WelcomeSheet visible={showWelcome} onClose={handleWelcomeClose} />
-      <EnergyBottomSheet visible={showEnergy} onClose={() => setShowEnergy(false)} />
+      <EnergyBottomSheet visible={showEnergy} onClose={() => setShowEnergy(false)} languageId={langKey} />
       <EnergyGuideOverlay visible={showEnergyGuide} onDismiss={handleEnergyGuideDismiss} energyCount={energyCount} />
     </SafeAreaView>
   );
@@ -335,7 +354,7 @@ const CARD_WIDTH = 160;
 const CARD_HEIGHT = 160;
 
 const styles = StyleSheet.create({
-  safeArea:      { flex: 1, backgroundColor: BG_CREAM },
+  safeArea:      { flex: 1, backgroundColor: BG_CREAM, overflow: 'hidden' },
   scrollContent: { paddingBottom: 40 },
 
   // Top bar with energy badge
@@ -350,19 +369,10 @@ const styles = StyleSheet.create({
   langBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: WHITE,
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
     gap: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
   },
   langEmoji: { fontSize: 18 },
-  langLabel: { fontSize: 13, color: TEXT_DARK, fontFamily: 'Volte-Semibold' },
+  langLabel: { fontSize: 15, color: TEXT_DARK, fontFamily: 'Volte-Semibold' },
   energyBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -415,6 +425,23 @@ const styles = StyleSheet.create({
   // Shared card text
   deckTitle:    { fontSize: 15, color: TEXT_DARK,  fontFamily: 'Volte-Semibold',   marginBottom: 2 },
   deckSubtitle: { fontSize: 13, color: TEXT_MUTED, fontFamily: 'Volte' },
+
+  // Banners
+  freezeBanner: {
+    backgroundColor: '#DBEAFE',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  freezeBannerText: {
+    fontSize: 13,
+    fontFamily: 'Volte-Semibold',
+    color: '#1E40AF',
+    textAlign: 'center',
+  },
 
   // Welcome sheet
   overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)' },
