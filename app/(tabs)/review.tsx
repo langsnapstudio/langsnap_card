@@ -22,7 +22,8 @@ const EMOJI = {
 };
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DECK_DATA } from '@/constants/mock-packs';
 import UpgradeModal from '@/components/UpgradeModal';
@@ -35,6 +36,7 @@ import {
   type SRSFilter,
 } from '@/constants/review-store';
 import { getDueCards, loadSRS, type SRSStore } from '@/constants/srs-store';
+import { getActivatedPacks } from '@/constants/activated-store';
 import { useSheetDismiss } from '@/hooks/useSheetDismiss';
 
 
@@ -53,6 +55,14 @@ const THEME_DECKS = [
   { id: 't4', title: 'Clothe & Accessories',  subtitle: '衣服配飾', image: require('@/assets/images/deck_cover_clothe_accessories.png') },
   { id: 't5', title: 'Body Parts',            subtitle: '身體部位', image: require('@/assets/images/deck_cover_body_parts.png') },
   { id: 't6', title: 'Furniture & Appliances',subtitle: '家具家電', image: require('@/assets/images/deck_cover_furniture_appliances.png') },
+  { id: 't7', title: 'Sports',                subtitle: '運動',   image: require('@/assets/images/deck_cover_animals.png') },
+];
+
+const HSK_DECKS = [
+  { id: 'hsk1', title: 'HSK 3.0 Lv. 1', subtitle: '華語水平 3.0（一級）', image: require('@/assets/images/deck_cover_hsk1.png') },
+  { id: 'hsk2', title: 'HSK 3.0 Lv. 2', subtitle: '華語水平 3.0（二級）', image: require('@/assets/images/deck_cover_hsk2.png') },
+  { id: 'hsk3', title: 'HSK 3.0 Lv. 3', subtitle: '華語水平 3.0（三級）', image: require('@/assets/images/deck_cover_hsk3.png') },
+  { id: 'hsk4', title: 'HSK 3.0 Lv. 4', subtitle: '華語水平 3.0（四級）', image: require('@/assets/images/deck_cover_hsk4.png') },
 ];
 
 const SESSION_SIZES: Array<15 | 30 | 50> = [15, 30, 50];
@@ -127,9 +137,9 @@ function ReviewSetupSheet({
       </Animated.View>
 
       {/* Sheet panel */}
-      <Animated.View style={[sheet.panel, { transform: [{ translateY: Animated.add(slideAnim, dragY) }] }]}>
+      <Animated.View style={[sheet.panel, { transform: [{ translateY: Animated.add(slideAnim, dragY) }] }]} {...panHandlers}>
         {/* Handle + header */}
-        <View style={sheet.handle} {...panHandlers} />
+        <View style={sheet.handle} />
         <View style={sheet.header}>
           <Text style={sheet.title}>{isQuiz ? 'Quiz Setup' : 'Review Setup'}</Text>
           <TouchableOpacity onPress={onClose} hitSlop={12}>
@@ -305,12 +315,22 @@ export default function ReviewScreen() {
   const [sheetVisible,      setSheetVisible]      = useState(false);
   const [quizSheetVisible,  setQuizSheetVisible]  = useState(false);
   const [upgradeVisible,    setUpgradeVisible]    = useState(false);
-  const [isPremium, setIsPremium] = useState(false);
-  const [stats, setStats] = useState({ learned: 0, due: 0 });
+  const [isPremium,           setIsPremium]           = useState(false);
+  const [stats,               setStats]               = useState({ learned: 0, due: 0 });
+  const [activatedThemeDecks, setActivatedThemeDecks] = useState<typeof THEME_DECKS>([]);
+  const [activatedHskDecks,   setActivatedHskDecks]   = useState<typeof HSK_DECKS>([]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     AsyncStorage.getItem(DEV_IS_PREMIUM_KEY).then(val => setIsPremium(val === 'true'));
-  }, []);
+    getActivatedPacks().then(activated => {
+      setActivatedThemeDecks(THEME_DECKS.filter(d =>
+        DECK_DATA[d.id]?.packs.some(p => activated.has(`${d.id}:${p.id}`))
+      ));
+      setActivatedHskDecks(HSK_DECKS.filter(d =>
+        DECK_DATA[d.id]?.packs.some(p => activated.has(`${d.id}:${p.id}`))
+      ));
+    });
+  }, []));
 
   useEffect(() => {
     loadSRS().then((store: SRSStore) => {
@@ -391,8 +411,10 @@ export default function ReviewScreen() {
 
             {/* Total acquired */}
             <View style={styles.statTile}>
-              <Text style={styles.statCount}>{stats.learned}</Text>
-              <Text style={styles.statLabel}>flashcards</Text>
+              <View style={styles.dueCountRow}>
+                <Text style={styles.dueCount}>{stats.learned}</Text>
+              </View>
+              <Text style={styles.dueLabel}>flashcards</Text>
             </View>
 
             <View style={styles.statDivider} />
@@ -410,8 +432,8 @@ export default function ReviewScreen() {
 
         {/* Cream content area */}
         <View style={styles.creamSection}>
-        {/* Action card (Review + Quiz) */}
-        <View style={styles.actionCard}>
+        {/* Action card (Review + Quiz) — hidden when no packs activated */}
+        {(activatedHskDecks.length > 0 || activatedThemeDecks.length > 0) && <View style={styles.actionCard}>
           <TouchableOpacity
             style={styles.actionBtn}
             activeOpacity={0.75}
@@ -431,36 +453,72 @@ export default function ReviewScreen() {
             <Text style={styles.actionEmoji}>🎮</Text>
             <Text style={styles.actionLabel}>Quiz</Text>
           </TouchableOpacity>
-        </View>
+        </View>}
+
+
+        {/* Empty state — no packs activated yet */}
+        {activatedHskDecks.length === 0 && activatedThemeDecks.length === 0 && (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyEmoji}>🃏</Text>
+            <Text style={styles.emptyTitle}>No decks yet</Text>
+            <Text style={styles.emptyBody}>
+              {"Head to the Learn tab and open a card pack to get started."}
+            </Text>
+          </View>
+        )}
+
+        {/* HSK section — always on top, matches Learn tab ordering */}
+        {activatedHskDecks.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>HSK</Text>
+              {activatedHskDecks.length > 6 && (
+                <TouchableOpacity activeOpacity={0.7} onPress={() => router.push('/review/all-decks')}>
+                  <Text style={styles.showAll}>Show all</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.deckRow}>
+              {activatedHskDecks.slice(0, 6).map((deck) => (
+                <TouchableOpacity key={deck.id} style={styles.deckCard} activeOpacity={0.85}
+                  onPress={() => router.push(`/review/deck-words?deckId=${deck.id}`)}>
+                  <View style={styles.deckImageBox}>
+                    <Image source={deck.image} style={styles.deckImage} resizeMode="cover" />
+                  </View>
+                  <Text style={styles.deckTitle} numberOfLines={1}>{deck.title}</Text>
+                  <Text style={styles.deckSubtitle} numberOfLines={1}>{deck.subtitle}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Themes section */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Themes</Text>
-          <TouchableOpacity activeOpacity={0.7}>
-            <Text style={styles.showAll}>Show all</Text>
-          </TouchableOpacity>
-        </View>
+        {activatedThemeDecks.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Themes</Text>
+              {activatedThemeDecks.length > 6 && (
+                <TouchableOpacity activeOpacity={0.7} onPress={() => router.push('/review/all-decks')}>
+                  <Text style={styles.showAll}>Show all</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.deckRow}>
+              {activatedThemeDecks.slice(0, 6).map((deck) => (
+                <TouchableOpacity key={deck.id} style={styles.deckCard} activeOpacity={0.85}
+                  onPress={() => router.push(`/review/deck-words?deckId=${deck.id}`)}>
+                  <View style={styles.deckImageBox}>
+                    <Image source={deck.image} style={styles.deckImage} resizeMode="cover" />
+                  </View>
+                  <Text style={styles.deckTitle} numberOfLines={1}>{deck.title}</Text>
+                  <Text style={styles.deckSubtitle} numberOfLines={1}>{deck.subtitle}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.deckRow}
-        >
-          {THEME_DECKS.map((deck) => (
-            <TouchableOpacity
-              key={deck.id}
-              style={styles.deckCard}
-              activeOpacity={0.85}
-              onPress={() => router.push(`/review/deck-words?deckId=${deck.id}`)}
-            >
-              <View style={styles.deckImageBox}>
-                <Image source={deck.image} style={styles.deckImage} resizeMode="cover" />
-              </View>
-              <Text style={styles.deckTitle} numberOfLines={1}>{deck.title}</Text>
-              <Text style={styles.deckSubtitle} numberOfLines={1}>{deck.subtitle}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
         </View>{/* end creamSection */}
       </ScrollView>
 
@@ -542,6 +600,11 @@ const styles = StyleSheet.create({
   actionLabel: { fontSize: 15, color: TEXT_DARK, fontFamily: 'Volte-Semibold' },
   actionDivider: { width: 1, backgroundColor: '#E8E5DF', marginVertical: 4 },
 
+  section:       { marginBottom: 32 },
+  emptyState:    { alignItems: 'center', paddingTop: 48, paddingHorizontal: 32 },
+  emptyEmoji:    { fontSize: 48, marginBottom: 16 },
+  emptyTitle:    { fontSize: 18, fontFamily: 'Volte-Semibold', color: TEXT_DARK, marginBottom: 8 },
+  emptyBody:     { fontSize: 15, fontFamily: 'Volte', color: TEXT_MUTED, textAlign: 'center', lineHeight: 22 },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -241,7 +241,7 @@ export default function QuizScreen() {
         {/* ── Header ──────────────────────────────────────────────────────── */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
-            <Ionicons name="arrow-back" size={24} color={WHITE} />
+            <Ionicons name="arrow-back-circle-outline" size={30} color={WHITE} />
           </TouchableOpacity>
 
           <View style={styles.headerCenter}>

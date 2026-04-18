@@ -24,7 +24,8 @@ import type { ExampleSentence } from '@/constants/mock-packs';
 import { useAuth } from '@/lib/auth';
 import { useSheetDismiss } from '@/hooks/useSheetDismiss';
 
-const AUTOPLAY_KEY = 'langsnap:autoplay_audio';
+const AUTOPLAY_KEY   = 'langsnap:autoplay_audio';
+const TUTORIAL_KEY   = 'langsnap:tutorial_learn_shown';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
@@ -104,6 +105,10 @@ export default function PackOpeningScreen() {
   const isPlayingRef  = useRef(false);
   const [isPlaying, setIsPlaying] = useState(false);
 
+  const [showTutorial, setShowTutorial] = useState(false);
+  const tutorialOpacity = useRef(new Animated.Value(0)).current;
+  const shouldShowTutorial = useRef(false);
+
   const autoPlayRef              = useRef(true);
   const [autoPlay, setAutoPlay]  = useState(true);
   const [showSettings, setShowSettings]         = useState(false);
@@ -118,6 +123,9 @@ export default function PackOpeningScreen() {
       const saved = val !== 'false';
       setAutoPlay(saved);
       autoPlayRef.current = saved;
+    });
+    AsyncStorage.getItem(TUTORIAL_KEY).then(val => {
+      if (!val) shouldShowTutorial.current = true;
     });
     return () => { soundRef.current?.unloadAsync(); };
   }, []);
@@ -378,7 +386,12 @@ export default function PackOpeningScreen() {
         Animated.timing(navOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
       ]).start(() => {
         isInteractiveRef.current = true;
-        if (autoPlayRef.current && cards[0]?.audioUrl) {
+        if (shouldShowTutorial.current) {
+          shouldShowTutorial.current = false;
+          AsyncStorage.setItem(TUTORIAL_KEY, 'true');
+          setShowTutorial(true);
+          Animated.timing(tutorialOpacity, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+        } else if (autoPlayRef.current && cards[0]?.audioUrl) {
           setTimeout(() => playAudio(cards[0].audioUrl as number), 300);
         }
       });
@@ -386,6 +399,14 @@ export default function PackOpeningScreen() {
 
     return () => [t1, t2, t3, t4].forEach(clearTimeout);
   }, []);
+
+  const dismissTutorial = () => {
+    Animated.timing(tutorialOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => {
+      setShowTutorial(false);
+      const audio = cards[globalIndexRef.current]?.audioUrl;
+      if (autoPlayRef.current && audio) playAudio(audio as number);
+    });
+  };
 
   const progress = cards.length > 0 ? (globalIndex + 1) / cards.length : 0;
 
@@ -557,8 +578,7 @@ export default function PackOpeningScreen() {
         </View>
         <View style={styles.navRow}>
           <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
-            <Ionicons name="exit-outline" size={26} color="white"
-              style={{ transform: [{ scaleX: -1 }] }} />
+            <Ionicons name="arrow-back-circle-outline" size={30} color="white" />
           </TouchableOpacity>
           <Text style={styles.navTitle}>Learn</Text>
           <TouchableOpacity hitSlop={12} onPress={openSettings}>
@@ -567,15 +587,43 @@ export default function PackOpeningScreen() {
         </View>
       </Animated.View>
 
+      {/* First-time tutorial overlay */}
+      {showTutorial && (
+        <Animated.View style={[styles.abs, StyleSheet.absoluteFillObject, { zIndex: 60, opacity: tutorialOpacity }]}>
+          <Pressable style={[StyleSheet.absoluteFill, tutStyles.overlay]} onPress={dismissTutorial}>
+            <View style={tutStyles.tutBlock}>
+              <Ionicons name="phone-portrait-outline" size={34} color="white" />
+              <Text style={tutStyles.tutTitle}>Flip to see the meaning</Text>
+              <Text style={tutStyles.tutSub}>Tap the card</Text>
+            </View>
+            <View style={tutStyles.dashedDivider} />
+            <View style={[tutStyles.tutBlock, { position: 'relative' }]}>
+              <View style={tutStyles.swipeIconRow}>
+                <Ionicons name="arrow-back-outline" size={24} color="white" style={{ transform: [{ rotate: '-20deg' }] }} />
+                <Ionicons name="hand-left-outline"  size={26} color="white" style={{ marginHorizontal: 8 }} />
+                <Ionicons name="arrow-forward-outline" size={24} color="white" style={{ transform: [{ rotate: '20deg' }] }} />
+              </View>
+              <Text style={tutStyles.tutTitle}>Swipe to continue{'\n'}next card</Text>
+              <Text style={tutStyles.tutSub}>Swipe left or right</Text>
+            </View>
+          </Pressable>
+        </Animated.View>
+      )}
+
       {/* Settings bottom sheet */}
       {showSettings && (
         <Modal transparent animationType="none" visible={showSettings} onRequestClose={closeSettings}>
           <Animated.View style={[styles.settingsOverlay, { opacity: settingsFade }]}>
             <Pressable style={StyleSheet.absoluteFill} onPress={closeSettings} />
           </Animated.View>
-          <Animated.View style={[styles.settingsSheet, { transform: [{ translateY: Animated.add(settingsSlide, settingsDragY) }] }]}>
-            <View style={styles.sheetHandle} {...settingsPanHandlers} />
-            <Text style={styles.sheetTitle}>Settings</Text>
+          <Animated.View style={[styles.settingsSheet, { transform: [{ translateY: Animated.add(settingsSlide, settingsDragY) }] }]} {...settingsPanHandlers}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>Settings</Text>
+              <TouchableOpacity onPress={closeSettings} hitSlop={12}>
+                <Ionicons name="close" size={22} color="#262626" />
+              </TouchableOpacity>
+            </View>
 
             <View style={styles.settingRow}>
               <View style={{ flex: 1 }}>
@@ -711,11 +759,13 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: 12, marginBottom: 20,
   },
+  sheetHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24,
+  },
   sheetTitle: {
     fontSize: 18,
     fontFamily: 'Volte-Semibold',
     color: '#262626',
-    marginBottom: 24,
   },
   settingRow: {
     flexDirection: 'row',
@@ -746,5 +796,46 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Volte-Semibold',
     color: '#FFFFFF',
+  },
+});
+
+const tutStyles = StyleSheet.create({
+  overlay: {
+    backgroundColor: 'rgba(15,12,24,0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 60,
+  },
+  tutBlock: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 40,
+    width: '100%',
+  },
+  tutTitle: {
+    fontSize: 18,
+    fontFamily: 'Volte-Semibold',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginTop: 10,
+    lineHeight: 26,
+  },
+  tutSub: {
+    fontSize: 14,
+    fontFamily: 'Volte',
+    color: 'rgba(255,255,255,0.55)',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  dashedDivider: {
+    width: '75%',
+    borderTopWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  swipeIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
   },
 });

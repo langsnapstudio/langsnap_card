@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Audio } from 'expo-av';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Animated,
   Dimensions,
@@ -22,6 +23,8 @@ import type { ExampleSentence } from '@/constants/mock-packs';
 import { saveSRSResults } from '@/constants/srs-store';
 import { useAuth } from '@/lib/auth';
 import { useSheetDismiss } from '@/hooks/useSheetDismiss';
+
+const REVIEW_TUTORIAL_KEY = 'langsnap:tutorial_review_manual_shown';
 
 // ── Layout ────────────────────────────────────────────────────────────────────
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
@@ -103,6 +106,10 @@ export default function ReviewFlashcardScreen() {
 
   const isAutoplay = config?.mode === 'autoplay';
 
+  const [showTutorial, setShowTutorial] = useState(false);
+  const tutorialOpacity = useRef(new Animated.Value(0)).current;
+  const shouldShowTutorial = useRef(false);
+
   const slotCardsRef   = useRef([0, 1, 2]);
   const frontSlotRef   = useRef(0);
   const globalIndexRef = useRef(0);
@@ -162,6 +169,18 @@ export default function ReviewFlashcardScreen() {
   // ── Setup ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+    if (!isAutoplay) {
+      AsyncStorage.getItem(REVIEW_TUTORIAL_KEY).then(val => {
+        if (!val) {
+          shouldShowTutorial.current = true;
+          AsyncStorage.setItem(REVIEW_TUTORIAL_KEY, 'true');
+          setTimeout(() => {
+            setShowTutorial(true);
+            Animated.timing(tutorialOpacity, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+          }, 600);
+        }
+      });
+    }
     if (autoPlayRef.current && queueRef.current[0]?.audioUrl) {
       setTimeout(() => playAudio(queueRef.current[0].audioUrl as number), 500);
     }
@@ -464,6 +483,12 @@ export default function ReviewFlashcardScreen() {
     }).start();
   };
 
+  const dismissReviewTutorial = () => {
+    Animated.timing(tutorialOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => {
+      setShowTutorial(false);
+    });
+  };
+
   const progress = queueRef.current.length > 0 ? (globalIndex + 1) / queueRef.current.length : 0;
 
   const ghostLayout = {
@@ -647,7 +672,7 @@ export default function ReviewFlashcardScreen() {
         </View>
         <View style={styles.navRow}>
           <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
-            <Ionicons name="exit-outline" size={26} color="white" style={{ transform: [{ scaleX: -1 }] }} />
+            <Ionicons name="arrow-back-circle-outline" size={30} color="white" />
           </TouchableOpacity>
           <Text style={styles.navTitle}>Review</Text>
           <TouchableOpacity hitSlop={12} onPress={openSettings}>
@@ -656,15 +681,52 @@ export default function ReviewFlashcardScreen() {
         </View>
       </View>
 
+      {/* First-time tutorial overlay — manual mode only */}
+      {showTutorial && !isAutoplay && (
+        <Animated.View style={[styles.abs, StyleSheet.absoluteFillObject, { zIndex: 60, opacity: tutorialOpacity }]}>
+          <Pressable style={[StyleSheet.absoluteFill, tutStyles.overlay]} onPress={dismissReviewTutorial}>
+            {/* Flip section */}
+            <View style={tutStyles.tutBlock}>
+              <Ionicons name="phone-portrait-outline" size={34} color="white" />
+              <Text style={tutStyles.tutTitle}>Flip to see the meaning</Text>
+              <Text style={tutStyles.tutSub}>Tap the card</Text>
+            </View>
+
+            {/* Horizontal dashed line */}
+            <View style={tutStyles.dashedH} />
+
+            {/* Swipe section — two columns split by vertical dashed */}
+            <View style={tutStyles.swipeRow}>
+              <View style={tutStyles.swipeCol}>
+                <Ionicons name="arrow-back-outline" size={32} color="white" />
+                <Text style={tutStyles.tutTitle}>Missed it</Text>
+                <Text style={tutStyles.tutSub}>Swipe left</Text>
+              </View>
+              <View style={tutStyles.dashedV} />
+              <View style={tutStyles.swipeCol}>
+                <Ionicons name="arrow-forward-outline" size={32} color="white" />
+                <Text style={tutStyles.tutTitle}>Got it</Text>
+                <Text style={tutStyles.tutSub}>Swipe right</Text>
+              </View>
+            </View>
+          </Pressable>
+        </Animated.View>
+      )}
+
       {/* Settings sheet */}
       {showSettings && (
         <Modal transparent animationType="none" visible={showSettings} onRequestClose={closeSettings}>
           <Animated.View style={[styles.settingsOverlay, { opacity: settingsFade }]}>
             <Pressable style={StyleSheet.absoluteFill} onPress={closeSettings} />
           </Animated.View>
-          <Animated.View style={[styles.settingsSheet, { transform: [{ translateY: Animated.add(settingsSlide, settingsDragY) }] }]}>
-            <View style={styles.sheetHandle} {...settingsPanHandlers} />
-            <Text style={styles.sheetTitle}>Settings</Text>
+          <Animated.View style={[styles.settingsSheet, { transform: [{ translateY: Animated.add(settingsSlide, settingsDragY) }] }]} {...settingsPanHandlers}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>Settings</Text>
+              <TouchableOpacity onPress={closeSettings} hitSlop={12}>
+                <Ionicons name="close" size={22} color="#262626" />
+              </TouchableOpacity>
+            </View>
 
             {isTaiwan && (
               <View style={styles.settingRow}>
@@ -725,7 +787,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24, paddingBottom: 40,
   },
   sheetHandle:  { width: 40, height: 4, backgroundColor: '#D1D5DB', borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 20 },
-  sheetTitle:   { fontSize: 18, fontFamily: 'Volte-Semibold', color: '#262626', marginBottom: 24 },
+  sheetHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  sheetTitle:   { fontSize: 18, fontFamily: 'Volte-Semibold', color: '#262626' },
   settingRow:   { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 8, marginBottom: 16 },
   settingLabel: { fontSize: 16, fontFamily: 'Volte-Semibold', color: '#262626', marginBottom: 4 },
   settingDesc:  { fontSize: 13, fontFamily: 'Volte', color: '#525252' },
@@ -815,4 +878,58 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24, paddingTop: 16,
   },
   navTitle: { fontSize: 18, color: '#fff', fontFamily: 'Volte-Semibold' },
+});
+
+const tutStyles = StyleSheet.create({
+  overlay: {
+    backgroundColor: 'rgba(15,12,24,0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 60,
+  },
+  tutBlock: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    paddingHorizontal: 40,
+    width: '100%',
+  },
+  tutTitle: {
+    fontSize: 18,
+    fontFamily: 'Volte-Semibold',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginTop: 10,
+    lineHeight: 26,
+  },
+  tutSub: {
+    fontSize: 14,
+    fontFamily: 'Volte',
+    color: 'rgba(255,255,255,0.55)',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  dashedH: {
+    width: '80%',
+    borderTopWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  swipeRow: {
+    flexDirection: 'row',
+    width: '80%',
+    paddingTop: 8,
+  },
+  swipeCol: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 12,
+  },
+  dashedV: {
+    width: 1.5,
+    borderLeftWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(255,255,255,0.25)',
+    marginTop: 8,
+  },
 });

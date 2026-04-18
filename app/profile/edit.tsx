@@ -109,13 +109,24 @@ export default function EditProfileScreen() {
   async function handleSave() {
     if (!user) return;
     setSaving(true);
-    const { error } = await supabase
-      .from('profiles')
-      .update({ display_name: displayName.trim() })
-      .eq('id', user.id);
-    if (!error) await refreshProfile();
-    setSaving(false);
-    router.back();
+    try {
+      const saveOp = (async () => {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ display_name: displayName.trim() })
+          .eq('id', user.id);
+        if (!error) await refreshProfile();
+      })();
+      const timeout = new Promise<void>((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 6000)
+      );
+      await Promise.race([saveOp, timeout]);
+    } catch (_) {
+      // Network error or timeout — navigate back anyway
+    } finally {
+      setSaving(false);
+      router.back();
+    }
   }
 
   return (
