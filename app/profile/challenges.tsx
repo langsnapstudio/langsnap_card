@@ -141,8 +141,11 @@ function ClaimSuccessSheet({ visible, reward, onClose, onActivate }: {
         <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)', opacity: fadeAnim }]} />
       </Pressable>
 
-      <Animated.View style={[styles.sheet, { transform: [{ translateY: Animated.add(slideAnim, dragY) }] }]}>
-        <View style={styles.sheetHandle} {...panHandlers} />
+      <Animated.View style={[styles.sheet, { transform: [{ translateY: Animated.add(slideAnim, dragY) }] }]} {...panHandlers}>
+        <View style={styles.sheetHandle} />
+        <TouchableOpacity style={styles.sheetCloseBtn} onPress={onClose} hitSlop={12}>
+          <Ionicons name="close" size={22} color="#262626" />
+        </TouchableOpacity>
 
         <View style={styles.sheetContent}>
           <Text style={styles.sheetEmoji}>⚡</Text>
@@ -328,6 +331,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   sheetHandle:   { width: 40, height: 4, borderRadius: 2, backgroundColor: BORDER, alignSelf: 'center', marginBottom: 8 },
+  sheetCloseBtn: { position: 'absolute', top: 16, right: 16, zIndex: 10 },
   sheetContent:  { padding: 24, alignItems: 'center', gap: 10 },
   sheetEmoji:    { fontSize: 52, marginBottom: 4 },
   sheetTitle:    { fontSize: 22, fontFamily: 'Volte-Semibold', color: TEXT_DARK },

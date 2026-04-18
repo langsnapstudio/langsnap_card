@@ -21,6 +21,8 @@ import { incrementFeat } from '@/constants/feat-store';
 import { getTotalEnergy } from '@/constants/energy-store';
 import EnergyBottomSheet from '@/components/EnergyBottomSheet';
 import { getActivatedPacks, markPackActivated, isActivated } from '@/constants/activated-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DEV_IS_PREMIUM_KEY } from '@/constants/storage-keys';
 import { useSheetDismiss } from '@/hooks/useSheetDismiss';
 import { useAuth } from '@/lib/auth';
 
@@ -100,9 +102,9 @@ function RedemptionSheet({
         <Pressable style={StyleSheet.absoluteFill} onPress={onCancel} />
       </Animated.View>
 
-      <Animated.View style={[styles.sheet, { transform: [{ translateY: Animated.add(slideAnim, dragY) }] }]}>
+      <Animated.View style={[styles.sheet, { transform: [{ translateY: Animated.add(slideAnim, dragY) }] }]} {...panHandlers}>
         {/* Handle */}
-        <View style={styles.sheetHandle} {...panHandlers} />
+        <View style={styles.sheetHandle} />
         {/* Close */}
         <TouchableOpacity style={styles.sheetClose} onPress={onCancel} hitSlop={12}>
           <Ionicons name="close" size={22} color={TEXT_DARK} />
@@ -157,11 +159,12 @@ function isProgressionLocked(
 
 // ── Pack action button ─────────────────────────────────────────────────────────
 function PackButton({
-  pack, activated, locked,
+  pack, activated, locked, userIsPremium,
 }: {
   pack: PackMeta;
   activated: boolean;
   locked: boolean;
+  userIsPremium: boolean;
 }) {
   if (activated) {
     return (
@@ -173,7 +176,7 @@ function PackButton({
   if (locked) {
     return (
       <View style={styles.packBtnRow}>
-        {pack.isPremium && (
+        {pack.isPremium && !userIsPremium && (
           <View style={styles.packBtnCrown}>
             <Text style={styles.packBtnCrownEmoji}>👑</Text>
           </View>
@@ -216,10 +219,12 @@ export default function DeckDetailScreen() {
   const [upgradeVisible, setUpgradeVisible] = useState(false);
   const [energyVisible,  setEnergyVisible]  = useState(false);
   const [activatedPacks, setActivatedPacks] = useState<Set<string>>(new Set());
+  const [userIsPremium,  setUserIsPremium]  = useState(false);
   const energyCount = getTotalEnergy(langKey);
 
   useEffect(() => {
     getActivatedPacks().then(setActivatedPacks);
+    AsyncStorage.getItem(DEV_IS_PREMIUM_KEY).then(val => setUserIsPremium(val === 'true'));
   }, []);
 
   // Sort: unactivated first, activated last
@@ -232,7 +237,7 @@ export default function DeckDetailScreen() {
   const handlePackPress = (pack: PackMeta) => {
     if (isActivated(activatedPacks, deckId ?? '', pack.id)) return;                            // already activated
     if (isProgressionLocked(pack, deck.packs, activatedPacks, deckId ?? '')) return;           // previous pack not done yet
-    if (pack.isPremium) { setUpgradeVisible(true); return; }
+    if (pack.isPremium && !userIsPremium) { setUpgradeVisible(true); return; }
     setSelectedPack(pack);
   };
 
@@ -320,7 +325,7 @@ export default function DeckDetailScreen() {
                   </Text>
                   <Text style={styles.packCards}>{pack.cardCount} cards</Text>
                 </View>
-                <PackButton pack={pack} activated={activated} locked={locked} />
+                <PackButton pack={pack} activated={activated} locked={locked} userIsPremium={userIsPremium} />
               </TouchableOpacity>
             );
           })}

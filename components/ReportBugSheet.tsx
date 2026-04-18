@@ -96,9 +96,9 @@ export default function ReportBugSheet({
         style={styles.kvWrap}
         pointerEvents="box-none"
       >
-        <Animated.View style={[styles.sheet, { transform: [{ translateY: Animated.add(slideAnim, dragY) }] }]}>
+        <Animated.View style={[styles.sheet, { transform: [{ translateY: Animated.add(slideAnim, dragY) }] }]} {...panHandlers}>
           {/* Handle */}
-          <View style={styles.handle} {...panHandlers} />
+          <View style={styles.handle} />
 
           {/* Close */}
           <TouchableOpacity style={styles.closeBtn} onPress={handleClose} hitSlop={12}>

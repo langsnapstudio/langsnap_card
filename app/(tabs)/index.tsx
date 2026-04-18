@@ -10,11 +10,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { LANGUAGE_MAP } from '@/constants/languages';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import EnergyBottomSheet from '@/components/EnergyBottomSheet';
 import { getTotalEnergy } from '@/constants/energy-store';
 import { useAuth } from '@/lib/auth';
@@ -141,12 +141,15 @@ function WelcomeSheet({ visible, onClose }: { visible: boolean; onClose: () => v
         <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
       </Animated.View>
 
-      <Animated.View style={[styles.sheet, { transform: [{ translateY: Animated.add(slideAnim, dragY) }] }]}>
-        <View style={styles.sheetHandle} {...panHandlers} />
+      <Animated.View style={[styles.sheet, { transform: [{ translateY: Animated.add(slideAnim, dragY) }] }]} {...panHandlers}>
+        <View style={styles.sheetHandle} />
+        <TouchableOpacity style={styles.sheetCloseBtn} onPress={handleClose} hitSlop={12}>
+          <Ionicons name="close" size={22} color={TEXT_DARK} />
+        </TouchableOpacity>
 
         <View style={styles.creatorAvatar}>
           <Image
-            source={require('@/assets/images/illustration-dog.png')}
+            source={require('@/assets/images/avatar-me.png')}
             style={styles.creatorImage}
             resizeMode="contain"
           />
@@ -156,16 +159,15 @@ function WelcomeSheet({ visible, onClose }: { visible: boolean; onClose: () => v
 
         <View style={styles.bodyBlock}>
           <Text style={styles.welcomeBody}>
-            {"Hey, I'm Septymo\nDesigner. Language learner. Solo creator of this app."}
+            {"Hey, I'm Septymo 👋🏻\nDesigner & Solo creator of this app."}
           </Text>
           <Text style={[styles.welcomeBody, styles.bodyPara]}>
-            {'I built this app because I wanted a more enjoyable and memorable way to learn vocabulary. With 500+ hand-drawn illustrated flashcards, I believe it can help you learn more effectively — and have more fun doing it, just like it did for me.'}
+            {'I hope '}
+            <Text style={styles.welcomeBodyBold}>{'500+ crafted illustrated flashcards'}</Text>
+            {' I poured into this app could help you learn more effectively — and have more fun doing it. Thank you for your support. 🙏🏻'}
           </Text>
           <Text style={[styles.welcomeBody, styles.bodyPara]}>
-            {"By being here, you're supporting not just a language app, but every crafted illustration I poured into it. Thank you — it means everything."}
-          </Text>
-          <Text style={[styles.welcomeBody, styles.bodyPara]}>
-            {'Now — pick a deck that catches your eye and dive in. Enjoy the journey!'}
+            {'Now — pick a deck that catches your eye and dive in. Enjoy the journey! ✨'}
           </Text>
         </View>
 
@@ -456,18 +458,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#E0DDD8', marginBottom: 28,
     alignSelf: 'center',
   },
+  sheetCloseBtn: {
+    position: 'absolute', top: 16, right: 16,
+    zIndex: 10,
+  },
   creatorAvatar: {
-    width: 88, height: 88, borderRadius: 44,
-    backgroundColor: '#F5C842',
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: 20, overflow: 'hidden',
+    marginBottom: 20,
     alignSelf: 'center',
   },
-  creatorImage:   { width: 70, height: 70 },
+  creatorImage:   { width: 88, height: 88 },
   welcomeTitle:   { fontSize: 22, color: TEXT_DARK, fontFamily: 'Volte-Semibold', textAlign: 'center', marginBottom: 16 },
   bodyBlock:      { marginBottom: 28 },
   bodyPara:       { marginTop: 14 },
-  welcomeBody:    { fontSize: 15, lineHeight: 24, color: TEXT_MUTED, fontFamily: 'Volte', textAlign: 'center' },
+  welcomeBody:     { fontSize: 15, lineHeight: 24, color: TEXT_MUTED, fontFamily: 'Volte', textAlign: 'center' },
+  welcomeBodyBold: { fontFamily: 'Volte-Semibold', color: TEXT_DARK },
   welcomeBtn: {
     width: '100%', height: 52, borderRadius: 14,
     backgroundColor: BRAND_PURPLE,

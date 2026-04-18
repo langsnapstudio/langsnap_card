@@ -83,8 +83,8 @@ export default function EnergyBottomSheet({ visible, onClose, languageId }: Prop
       </TouchableWithoutFeedback>
 
       {/* Sheet */}
-      <Animated.View style={[styles.sheet, { transform: [{ translateY: Animated.add(slideAnim, dragY) }] }]}>
-        <View style={styles.handle} {...panHandlers} />
+      <Animated.View style={[styles.sheet, { transform: [{ translateY: Animated.add(slideAnim, dragY) }] }]} {...panHandlers}>
+        <View style={styles.handle} />
 
         {isEmpty ? <EmptyState countdown={countdown} onGoToChallenges={handleGoToChallenges} onClose={onClose} />
                  : <NormalState energy={energy} countdown={countdown} onClose={onClose} />}
@@ -239,6 +239,9 @@ const styles = StyleSheet.create({
   handle: {
     width: 40, height: 4, borderRadius: 2,
     backgroundColor: BORDER, alignSelf: 'center', marginBottom: 20,
+  },
+  closeBtn: {
+    position: 'absolute', top: 16, right: 16, zIndex: 10,
   },
   bottomPad: { height: 36 },
 

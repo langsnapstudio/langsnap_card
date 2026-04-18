@@ -145,8 +145,11 @@ function PremiumSuccessSheet({ visible, onClose }: { visible: boolean; onClose: 
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
       <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)', opacity: fadeAnim }]} />
 
-      <Animated.View style={[successStyles.sheet, { transform: [{ translateY: Animated.add(slideAnim, dragY) }] }]}>
-        <View style={successStyles.handle} {...panHandlers} />
+      <Animated.View style={[successStyles.sheet, { transform: [{ translateY: Animated.add(slideAnim, dragY) }] }]} {...panHandlers}>
+        <View style={successStyles.handle} />
+        <TouchableOpacity style={successStyles.closeBtn} onPress={onClose} hitSlop={12}>
+          <Ionicons name="close" size={22} color="#262626" />
+        </TouchableOpacity>
 
         {/* Crown */}
         <View style={successStyles.crownWrap}>
@@ -190,7 +193,8 @@ const successStyles = StyleSheet.create({
     paddingHorizontal: 24, paddingBottom: 48, paddingTop: 12,
     alignItems: 'center',
   },
-  handle:     { width: 40, height: 4, borderRadius: 2, backgroundColor: BORDER, marginBottom: 24 },
+  handle:     { width: 40, height: 4, borderRadius: 2, backgroundColor: BORDER, marginBottom: 24, alignSelf: 'center' },
+  closeBtn:   { position: 'absolute', top: 16, right: 16, zIndex: 10 },
   crownWrap:  { width: 80, height: 80, borderRadius: 40, backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
   crownEmoji: { fontSize: 40 },
   title:      { fontSize: 24, fontFamily: 'Volte-Semibold', color: TEXT_DARK, textAlign: 'center', marginBottom: 12 },
@@ -263,6 +267,9 @@ export default function UpgradeModal({ visible, onClose, onSubscribe }: Props) {
         {/* Sheet */}
         <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
           <View style={styles.handle} />
+          <TouchableOpacity style={styles.closeBtn} onPress={onClose} hitSlop={12}>
+            <Ionicons name="close" size={22} color={TEXT_DARK} />
+          </TouchableOpacity>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
@@ -376,6 +383,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     maxHeight: '92%',
   },
+  closeBtn: { position: 'absolute', top: 16, right: 16, zIndex: 10 },
   handle: {
     width: 40, height: 4, borderRadius: 2,
     backgroundColor: BORDER, alignSelf: 'center', marginBottom: 8,

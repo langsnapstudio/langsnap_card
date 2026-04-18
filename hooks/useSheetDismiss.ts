@@ -27,11 +27,16 @@ export function useSheetDismiss(onClose: () => void) {
 
   const panResponder = useRef(
     PanResponder.create({
-      // Claim the touch immediately so the ScrollView below doesn't steal it.
-      onStartShouldSetPanResponder:        () => true,
+      // Don't claim on start — lets buttons/switches inside the sheet work.
+      // Only claim once the gesture is clearly a downward drag.
+      onStartShouldSetPanResponder:        () => false,
       onStartShouldSetPanResponderCapture: () => false,
-      onMoveShouldSetPanResponder:         (_, g) =>
-        g.dy > 4 && Math.abs(g.dy) > Math.abs(g.dx),
+      // Capture phase fires before children — needed when panHandlers is on the
+      // whole sheet panel so interactive children don't swallow the drag.
+      onMoveShouldSetPanResponderCapture: (_, g) =>
+        g.dy > 8 && Math.abs(g.dy) > Math.abs(g.dx),
+      onMoveShouldSetPanResponder:        (_, g) =>
+        g.dy > 8 && Math.abs(g.dy) > Math.abs(g.dx),
 
       onPanResponderMove: (_, g) => {
         // Only track downward drag — no offset math, just direct value.
@@ -40,9 +45,20 @@ export function useSheetDismiss(onClose: () => void) {
 
       onPanResponderRelease: (_, g) => {
         if (g.dy > 80 || g.vy > 0.5) {
-          // Dismiss — the parent's onClose will handle the exit animation.
-          dragY.setValue(0);
-          onCloseRef.current();
+          // Slide the sheet off the bottom of the screen, then dismiss.
+          // Use gesture velocity so a fast flick feels instant, slow drag feels smooth.
+          const duration = Math.max(100, Math.min(280, 220 - g.vy * 120));
+          Animated.timing(dragY, {
+            toValue:         900,
+            duration,
+            useNativeDriver: true,
+          }).start(() => {
+            onCloseRef.current();
+            // Reset so the sheet is in the right position when it reopens.
+            // (Parents also call dragY.setValue(0) in their open branch, but
+            //  doing it here avoids any flash if the parent skips that step.)
+            dragY.setValue(0);
+          });
         } else {
           // Snap back to resting position.
           Animated.spring(dragY, {
