@@ -1,5 +1,5 @@
 # Langsnap Card — Product Requirements Document
-**Version 11.0 | Front-Office (Mobile App) | MVP**
+**Version 12.0 | Front-Office (Mobile App) | MVP**
 
 ---
 
@@ -127,9 +127,15 @@ Back-office (admin-facing): authentication, CRUD language, CRUD deck, CRUD flash
 
 ### Step 5 — Welcome bottom sheet (first-time only)
 - Appears after the user lands on the Learn tab for the first time
-- Displays creator avatar and a warm personal welcome message
+- Displays creator photo (avatar-me.png) — no circle crop, no background
+- Copy:
+  - **Para 1:** "Hey, I'm Septymo 👋🏻 / Designer & Solo creator of this app."
+  - **Para 2:** "I hope **500+ crafted illustrated flashcards** I poured into this app could help you learn more effectively — and have more fun doing it. Thank you for your support. 🙏🏻" ("500+ crafted illustrated flashcards" bold)
+  - **Para 3:** "Now — pick a deck that catches your eye and dive in. Enjoy the journey! ✨"
+  - **Button:** "Let's start learning!"
 - Tone: solo-creator, personal — feels like supporting a person, not a company
 - No tutorial content — kept warm and brief
+- Has X close button top-right; also dismisses via swipe-down or button
 
 ### Step 6 — First pack redemption (energy explainer)
 - Shown as a bottom sheet on the very first pack redemption ever — not during onboarding
@@ -144,8 +150,8 @@ Back-office (admin-facing): authentication, CRUD language, CRUD deck, CRUD flash
 |---|---|
 | Onboarding | Sign in → Profile setup (username + avatar) → Language selection → Reading system (TW only) → Learn tab → Welcome bottom sheet → First pack redemption energy explainer |
 | Learn | Browse deck sections → Deck detail → Redeem pack with energy → Flashcard review → Success screen |
-| Review | Review tab → Setup bottom sheet (mode, filters, session size) → Flashcard review with SRS → Results |
-| Quiz | Review tab → Quiz → Multiple choice questions → Results |
+| Review | Cards tab → Setup bottom sheet (mode, filters, session size) → Flashcard review with SRS → Results |
+| Quiz | Cards tab → Quiz → Multiple choice questions → Results |
 | Profile | View stats, manage languages, view challenges, social/friends, settings, account |
 | Social | Find friends via search or link → View public profile → Follow → See friends list |
 | Upgrade | Tap crown-locked pack or profile subscription section → Upgrade modal → Subscribe |
@@ -156,8 +162,10 @@ Back-office (admin-facing): authentication, CRUD language, CRUD deck, CRUD flash
 
 ### Bottom navigation
 - Tab 1: Learn
-- Tab 2: Review
+- Tab 2: Cards
 - Tab 3: Profile
+
+Each tab uses a custom SVG icon (active state: brand purple fill, inactive: #262626 fill).
 
 ---
 
@@ -226,13 +234,18 @@ Displayed after a user redeems a pack from the Learn tab.
 
 ---
 
-## Review Tab
+## Cards Tab
 
 This tab is where users review and practice vocabulary they have already learned.
 
+### Empty state — no packs activated
+- Shown when the user has not yet activated any card pack
+- Review/Quiz action buttons are hidden
+- Displays 🃏 icon, "No decks yet" title, and "Head to the Learn tab and open a card pack to get started." message
+
 ### All-words level
 - Total learned word count displayed prominently
-- Review button (🧠) and Quiz button (🎮) for all learned words
+- Review button (🧠) and Quiz button (🎮) for all learned words — hidden until at least one pack is activated
 - Empty state: if no words learned yet, show friendly message "You haven't learned any words yet — go explore a deck!" with a button back to the Learn tab
 
 ### Per-deck level
@@ -317,7 +330,7 @@ Quiz reuses the Review setup sheet with a reduced set of controls — no mode se
 - Avatar at top: tappable, opens avatar picker bottom sheet (Netflix-style grid)
 - "Change avatar" text link below avatar — no pencil badge icon
 - Fields: Name (editable), Username (read-only, muted), Email (read-only, muted)
-- Save button in nav bar: saves display_name to Supabase, refreshProfile, navigates back
+- Save button in nav bar: saves display_name to Supabase, refreshProfile, navigates back. Always navigates back regardless of success or error — 6-second timeout prevents infinite loading state.
 
 ### Avatar picker
 - Netflix-style grid layout — preset illustrated avatars grouped by category
@@ -418,7 +431,7 @@ Quiz reuses the Review setup sheet with a reduced set of controls — no mode se
 
 ### What counts as a valid study session
 - Reaching the success screen after redeeming and completing a pack (Learn flow)
-- Completing any review session in Manual or Auto-play mode (Review tab)
+- Completing any review session in Manual or Auto-play mode (Cards tab)
 - Whichever comes first that day counts — only one qualifying event needed per day
 - Day boundary: midnight UTC
 
@@ -515,7 +528,7 @@ Quiz reuses the Review setup sheet with a reduced set of controls — no mode se
 - Subtitle: "Full access to every deck, pack, and level"
 - 5 benefit bullets: "All levels unlocked" / "Auto-play, games & quizzes" / "+3 bonus energy on renewal" / "2 streak freezes" / "Exclusive decks"
 - Plans: horizontal 3-column layout, equal width, equal height (alignItems: stretch)
-- No X close button — swipe down to dismiss. All bottom sheets across the app support swipe-down-to-dismiss via a shared `useSheetDismiss` gesture hook.
+- X close button top-right. All bottom sheets across the app have an X close button top-right and support swipe-down-to-dismiss via a shared `useSheetDismiss` gesture hook. Swipe-down is recognised on the **entire sheet area** (not just the handle bar) and animates the sheet sliding off the bottom of the screen.
 - Legal: "Terms of Service • Privacy Policy" as purple text links
 
 ### Subscription status (Profile tab)
@@ -587,7 +600,7 @@ Quiz reuses the Review setup sheet with a reduced set of controls — no mode se
 
 ### Notification rules
 - Practice reminder: max 1 per day. Suppressed if session already recorded that UTC day. Deep link → Learn tab.
-- Streak freeze: max 1 per freeze event. In-app banner dismisses when user taps into Learn or Review tab. Deep link → Learn tab.
+- Streak freeze: max 1 per freeze event. In-app banner dismisses when user taps into Learn or Cards tab. Deep link → Learn tab.
 - New follower: batching window 15 minutes → 1 push. Max 3 pushes per day. Single → deep link to follower profile. Batched → deep link to Followers tab.
 - Friend milestone: one-way follow — you follow them, you get notified (no mutual follow required). Per-friend cooldown: 7 days after a milestone push from that friend. Max 2 pushes per day across all friends. Deep link → friend's public profile.
 
@@ -611,7 +624,8 @@ Accessible from Profile → Account → Notifications.
 | State | Behaviour |
 |---|---|
 | No energy (badge tap or pack redemption) | Energy bottom sheet shows depleted message with countdown to next refill + CTA button to Challenges |
-| No words learned (Review tab) | Empty state: "You haven't learned any words yet — go explore a deck!" with button to Learn tab |
+| No packs activated (Cards tab) | Review/Quiz buttons hidden; 🃏 empty state shown with prompt to visit Learn tab |
+| No words learned (Cards tab) | Empty state: "You haven't learned any words yet — go explore a deck!" with button to Learn tab |
 | No internet connection | Full-screen overlay covering all tabs with no-connection icon, message, and "Try again" button. Screen disappears automatically when connection is restored. |
 | Empty deck (zero words) | Prevented on admin side — admin cannot publish a deck with zero words |
 | Free user taps Auto-play mode | Mode shown as locked in setup bottom sheet with upgrade prompt |
@@ -686,7 +700,7 @@ Accessible from Profile → Account → Report a bug, and also from the scrollab
 ### Flow
 - Opens as a bottom sheet
 - Required: description text field — user describes the issue
-- Optional: feature dropdown — which area does this relate to (e.g. Flashcard review, Review tab, Profile, Energy, Streak, Other)
+- Optional: feature dropdown — which area does this relate to (e.g. Flashcard review, Cards tab, Profile, Energy, Streak, Other)
 - Submit button — sends report
 - Success state: checkmark icon + confirmation message "Thanks for the report — we'll look into it!"
 - Report is logged for manual review by the creator — no automated action
