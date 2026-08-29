@@ -3,6 +3,7 @@ import {
   Animated,
   Keyboard,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -76,8 +77,9 @@ export default function ReportBugSheet({
   const handleSubmit = () => {
     if (!description.trim()) return;
     Keyboard.dismiss();
-    // TODO: send to backend / log for creator
-    console.log('[Report Bug]', { description: description.trim(), feature });
+    const subject = encodeURIComponent(feature ? `Bug report: ${feature}` : 'Bug report');
+    const body = encodeURIComponent(description.trim());
+    Linking.openURL(`mailto:langsnapstudio@gmail.com?subject=${subject}&body=${body}`);
     setSubmitted(true);
   };
 

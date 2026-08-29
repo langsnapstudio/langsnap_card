@@ -508,9 +508,9 @@ export default function ProfileScreen() {
 
         {/* ── Footer links ─────────────────────────────────────────────── */}
         <View style={styles.footerLinks}>
-          <TouchableOpacity activeOpacity={0.7}><Text style={styles.footerLink}>Privacy Policy</Text></TouchableOpacity>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => Linking.openURL('https://langsnap-card-admin.vercel.app/privacy')}><Text style={styles.footerLink}>Privacy Policy</Text></TouchableOpacity>
           <Text style={styles.footerDot}>•</Text>
-          <TouchableOpacity activeOpacity={0.7}><Text style={styles.footerLink}>Terms of Use</Text></TouchableOpacity>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => Linking.openURL('https://langsnap-card-admin.vercel.app/terms')}><Text style={styles.footerLink}>Terms of Use</Text></TouchableOpacity>
         </View>
         <Text style={styles.appVersion}>App Version: 1.0.0</Text>
 
