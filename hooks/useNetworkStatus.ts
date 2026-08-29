@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 /**
  * Returns true when the device has internet access.
@@ -10,6 +10,13 @@ export function useNetworkStatus(): { isOnline: boolean; recheck: () => void } {
   const [isOnline, setIsOnline] = useState(true);
 
   const check = async () => {
+    // Cross-origin fetch to a Google endpoint has no CORS headers, so it
+    // always fails in a browser regardless of actual connectivity.
+    if (Platform.OS === 'web') {
+      setIsOnline(navigator.onLine);
+      return;
+    }
+
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 3000);

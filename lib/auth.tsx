@@ -106,6 +106,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ── Google Sign-In ───────────────────────────────────────────────────────────
   const signInWithGoogle = async () => {
     try {
+      if (Platform.OS === 'web') {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: { redirectTo: window.location.origin },
+        });
+        if (error) Alert.alert('Sign-in Error', error.message);
+        return;
+      }
+
       const redirectTo = 'langsnapcard://';
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
