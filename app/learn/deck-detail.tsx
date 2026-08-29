@@ -33,7 +33,6 @@ const BG_CREAM     = '#F8F5EF';
 const TEXT_DARK    = '#262626';
 const TEXT_MUTED   = '#525252';
 const WHITE        = '#FFFFFF';
-const BORDER       = '#E8E5DF';
 const AMBER        = '#F5C842';
 
 // Pack level → ordinal word
@@ -144,46 +143,17 @@ function RedemptionSheet({
   );
 }
 
-// ── Progression lock helper ────────────────────────────────────────────────────
-// A pack is locked if the pack before it (by level order) hasn't been activated yet.
-function isProgressionLocked(
-  pack: PackMeta,
-  allPacks: PackMeta[],
-  activatedSet: Set<string>,
-  deckId: string,
-): boolean {
-  const idx = allPacks.findIndex(p => p.id === pack.id);
-  if (idx === 0) return false; // first pack always available
-  return !isActivated(activatedSet, deckId, allPacks[idx - 1].id);
-}
-
 // ── Pack action button ─────────────────────────────────────────────────────────
 function PackButton({
-  pack, activated, locked, userIsPremium,
+  pack, activated,
 }: {
   pack: PackMeta;
   activated: boolean;
-  locked: boolean;
-  userIsPremium: boolean;
 }) {
   if (activated) {
     return (
       <View style={styles.packBtnActivated}>
         <Text style={styles.packBtnActivatedText}>Activated</Text>
-      </View>
-    );
-  }
-  if (locked) {
-    return (
-      <View style={styles.packBtnRow}>
-        {pack.isPremium && !userIsPremium && (
-          <View style={styles.packBtnCrown}>
-            <Text style={styles.packBtnCrownEmoji}>👑</Text>
-          </View>
-        )}
-        <View style={styles.packBtnLock}>
-          <Ionicons name="lock-closed" size={15} color={TEXT_MUTED} />
-        </View>
       </View>
     );
   }
@@ -236,7 +206,6 @@ export default function DeckDetailScreen() {
 
   const handlePackPress = (pack: PackMeta) => {
     if (isActivated(activatedPacks, deckId ?? '', pack.id)) return;                            // already activated
-    if (isProgressionLocked(pack, deck.packs, activatedPacks, deckId ?? '')) return;           // previous pack not done yet
     if (pack.isPremium && !userIsPremium) { setUpgradeVisible(true); return; }
     setSelectedPack(pack);
   };
@@ -307,25 +276,24 @@ export default function DeckDetailScreen() {
         <View style={styles.packList}>
           {sortedPacks.map(pack => {
             const activated = isActivated(activatedPacks, deckId ?? '', pack.id);
-            const locked    = isProgressionLocked(pack, deck.packs, activatedPacks, deckId ?? '');
 
             return (
               <TouchableOpacity
                 key={pack.id}
                 style={[styles.packRow, activated && styles.packRowActivated]}
                 onPress={() => handlePackPress(pack)}
-                activeOpacity={(locked || activated) ? 1 : 0.8}
+                activeOpacity={activated ? 1 : 0.8}
               >
                 <View style={styles.packThumb}>
                   <Text style={styles.packThumbEmoji}>{emoji}</Text>
                 </View>
                 <View style={styles.packInfo}>
-                  <Text style={[styles.packName, (locked || activated) && styles.packTextMuted]}>
+                  <Text style={[styles.packName, activated && styles.packTextMuted]}>
                     {packName(pack.level)}
                   </Text>
                   <Text style={styles.packCards}>{pack.cardCount} cards</Text>
                 </View>
-                <PackButton pack={pack} activated={activated} locked={locked} userIsPremium={userIsPremium} />
+                <PackButton pack={pack} activated={activated} />
               </TouchableOpacity>
             );
           })}
@@ -416,11 +384,6 @@ const styles = StyleSheet.create({
   },
   packBtnActivatedText: { fontSize: 13, color: BRAND_PURPLE, fontFamily: 'Volte-Semibold' },
 
-  packBtnLock: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: BORDER,
-    alignItems: 'center', justifyContent: 'center',
-  },
   packBtnCrown: {
     width: 36, height: 36, borderRadius: 18,
     backgroundColor: '#FEF3C7',
