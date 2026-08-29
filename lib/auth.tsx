@@ -9,6 +9,16 @@ import { DEV_FORCE_ONBOARDING_KEY, WELCOME_SHOWN_KEY } from '@/constants/storage
 
 WebBrowser.maybeCompleteAuthSession();
 
+// react-native-web's Alert.alert() is a no-op, so web sign-in errors would
+// otherwise fail completely silently and just look like a redirect back to /sign-in.
+function showError(title: string, message: string) {
+  if (Platform.OS === 'web') {
+    window.alert(`${title}\n\n${message}`);
+  } else {
+    Alert.alert(title, message);
+  }
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────────
 export type Profile = {
   id: string;
@@ -51,11 +61,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const fetchProfile = async (userId: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .maybeSingle();
+    if (error) console.error('fetchProfile error:', error.message);
     setProfile(data ?? null);
   };
 
@@ -71,6 +82,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // ── Initial load — keep loading=true until everything is ready ──────────
     const init = async () => {
+      // Surface OAuth errors Supabase/Google put in the redirect URL (denied
+      // consent, expired state from a stale tab, etc.) — otherwise these are
+      // silently swallowed and just look like a bounce back to /sign-in.
+      if (Platform.OS === 'web') {
+        const hashParams  = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        const queryParams = new URLSearchParams(window.location.search);
+        const oauthError = hashParams.get('error_description') || hashParams.get('error')
+          || queryParams.get('error_description') || queryParams.get('error');
+        if (oauthError) {
+          showError('Sign-in Error', decodeURIComponent(oauthError));
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      }
+
       const [{ data: { session } }, devFlag] = await Promise.all([
         supabase.auth.getSession(),
         AsyncStorage.getItem(DEV_FORCE_ONBOARDING_KEY),
@@ -111,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           provider: 'google',
           options: { redirectTo: window.location.origin },
         });
-        if (error) Alert.alert('Sign-in Error', error.message);
+        if (error) showError('Sign-in Error', error.message);
         return;
       }
 

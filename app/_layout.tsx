@@ -37,6 +37,9 @@ function RootLayoutNav() {
 
     const inSignIn     = segments[0] === 'sign-in';
     const inOnboarding = segments[0] === 'onboarding';
+    // segments is [] at the root splash screen (app/index.tsx) — the generated
+    // route types don't include this case, so we cast past the false narrowing.
+    const atSplash = (segments as readonly string[]).length === 0;
 
     if (!session) {
       if (!inSignIn) router.replace('/sign-in');
@@ -57,7 +60,7 @@ function RootLayoutNav() {
     } else if (profile?.target_language === 'taiwan' && !profile?.reading_system) {
       if (segments[1] !== 'reading') router.replace('/onboarding/reading');
     } else {
-      if (inSignIn || inOnboarding) router.replace('/(tabs)');
+      if (inSignIn || inOnboarding || atSplash) router.replace('/(tabs)');
     }
   }, [session, profile, loading, devForceOnboarding]);
 

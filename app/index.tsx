@@ -1,8 +1,6 @@
-import { router } from 'expo-router';
 import { useEffect } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import Animated, {
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -11,10 +9,11 @@ import Animated, {
 
 const BRAND_PURPLE = '#7D69AB';
 
-function navigateToSignIn() {
-  router.replace('/sign-in');
-}
-
+// Purely decorative — the root nav guard in app/_layout.tsx owns all routing
+// decisions based on real auth state. This used to fire its own unconditional
+// router.replace('/sign-in') after a timer, which raced the guard and could
+// stomp an already-signed-in session (see: web OAuth redirect landing back
+// here before bouncing incorrectly to /sign-in).
 export default function SplashScreen() {
   const opacity = useSharedValue(0);
   const scale = useSharedValue(0.72);
@@ -25,15 +24,6 @@ export default function SplashScreen() {
     opacity.value = withTiming(1, { duration: 500 });
     scale.value = withSpring(1, { damping: 10, stiffness: 80, mass: 0.8 });
     translateY.value = withSpring(0, { damping: 10, stiffness: 80, mass: 0.8 });
-
-    // Fade out then navigate after 2.4s
-    const timer = setTimeout(() => {
-      opacity.value = withTiming(0, { duration: 380 }, (finished) => {
-        if (finished) runOnJS(navigateToSignIn)();
-      });
-    }, 2000);
-
-    return () => clearTimeout(timer);
   }, []);
 
   const logoStyle = useAnimatedStyle(() => ({
