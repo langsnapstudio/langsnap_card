@@ -23,6 +23,7 @@ import { getFollowingCount, getFollowersCount } from '@/constants/social-store';
 import { ALL_LANGUAGES, LANGUAGE_MAP } from '@/constants/languages';
 import { getStreakData, getMissedDays, utcDayKey } from '@/constants/streak-store';
 import { getClaimableCount } from '@/constants/feat-store';
+import { getClaimableGiftCount } from '@/constants/gift-store';
 import QRCodeModal from '@/components/QRCodeModal';
 import UpgradeModal from '@/components/UpgradeModal';
 import ReportBugSheet from '@/components/ReportBugSheet';
@@ -209,6 +210,7 @@ export default function ProfileScreen() {
   const [streakCount,    setStreakCount]    = useState(0);
   const [missedDays,     setMissedDays]     = useState(0);
   const [claimableCount, setClaimableCount] = useState(0);
+  const [mailCount, setMailCount] = useState(0);
   const isTaiwan = profile?.target_language === 'taiwan';
   const [showZhuyin, setShowZhuyin] = useState(profile?.reading_system === 'zhuyin');
   const [qrVisible,        setQrVisible]        = useState(false);
@@ -224,10 +226,12 @@ export default function ProfileScreen() {
       getStreakData(lang),
       getMissedDays(lang),
       getClaimableCount(),
-    ]).then(([streak, missed, claimable]) => {
+      getClaimableGiftCount(),
+    ]).then(([streak, missed, claimable, mail]) => {
       setStreakCount(streak.streak);
       setMissedDays(missed);
       setClaimableCount(claimable);
+      setMailCount(mail);
     });
   }, [profile?.target_language]);
 
@@ -452,6 +456,27 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.chevronWrap}>
             {claimableCount > 0 && <PulseDot />}
+            <Ionicons name="chevron-forward" size={18} color="#525252" />
+          </View>
+        </TouchableOpacity>
+
+        {/* ── Mail ──────────────────────────────────────────────────────── */}
+        <TouchableOpacity
+          style={[styles.challengesCard, { marginTop: 10 }]}
+          activeOpacity={0.8}
+          onPress={() => router.push('/profile/mail')}
+        >
+          <View style={styles.challengesLeft}>
+            <Text style={styles.challengesIcon}>📬</Text>
+            <View>
+              <Text style={styles.challengesTitle}>Mail</Text>
+              <Text style={styles.challengesSub}>
+                {mailCount > 0 ? `${mailCount} new` : 'Nothing new'}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.chevronWrap}>
+            {mailCount > 0 && <PulseDot />}
             <Ionicons name="chevron-forward" size={18} color="#525252" />
           </View>
         </TouchableOpacity>

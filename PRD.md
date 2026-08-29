@@ -199,11 +199,11 @@ This tab is where users explore vocabulary themes and learn new words.
 - Total word count
 - Flashcard pack list: each pack shows thumbnail illustration, level (Lv. 1, Lv. 2...), card count, and energy cost
 
-### Pack locking — two levels
-- **Progression lock (lock icon):** User must complete the current level before the next level unlocks. Sequential: Lv.1 → Lv.2 → Lv.3. Applies to all users including premium. Completion = reaching the success screen after viewing all cards in the pack once.
+### Pack locking
+- No progression/sequential lock — all packs in a deck are independently accessible from the start. A user does not need to complete Lv.1 before opening Lv.2 or Lv.3.
 - **Premium lock (crown icon):** Paid content. Requires active subscription. Lv.1 and Lv.2 are free for all users. Lv.3 onwards are premium by default (configurable per deck by admin).
-- Tapping a progression-locked pack: shows locked state, no action
 - Tapping a premium-locked pack: opens Upgrade modal
+- Tapping any non-premium-locked pack (regardless of completion status of other packs): goes straight to pack redemption confirmation
 
 ### Pack redemption confirmation
 - When tapping an unlocked pack: bottom sheet shows pack thumbnail, pack name, card count, energy cost
@@ -225,7 +225,7 @@ Displayed after a user redeems a pack from the Learn tab.
 - Swipe left or right to navigate to next/previous card
 
 ### Success screen
-- Shown after all cards in the pack are reviewed — this also triggers the next progression level unlock
+- Shown after all cards in the pack are reviewed
 - Animated cards fanning out in background
 - "Well Done!" message
 - "You have collected X new flashcards" — shows card count from the pack
@@ -325,6 +325,7 @@ Quiz reuses the Review setup sheet with a reduced set of controls — no mode se
 - Bottom row: two equal-width buttons — "Edit profile" (pencil) and "Share profile" (QR)
 - Purple header background bleeds behind status bar (nested SafeAreaView pattern)
 - Premium badge: crown emoji pill shown inline with display name in the purple header area when user has an active Premium subscription
+- Mail card: below the Challenges card (same visual pattern — icon, title, subtitle, pulse dot when something's claimable, chevron). Shows "X new" when unclaimed gifts exist, "Nothing new" otherwise. Tapping opens the Mail screen (see "Mail (Energy Gifts)" section).
 
 ### Edit profile screen (`/profile/edit`)
 - Avatar at top: tappable, opens avatar picker bottom sheet (Netflix-style grid)
@@ -411,10 +412,11 @@ Quiz reuses the Review setup sheet with a reduced set of controls — no mode se
 - Cap: cannot exceed the daily refill amount (1 ⚡)
 
 ### No-time-limit energy
-- Earned from Feats/Challenges — never expires, accumulates freely, no cap
+- Earned from Feats/Challenges, admin-sent Mail gifts, or (Premium) subscription renewal — never expires, accumulates freely, no cap
 - Premium subscribers receive +3 ⚡ no-time-limit energy on each subscription renewal (monthly or yearly billing cycle)
 - Yearly subscribers receive 3 ⚡ × 12 = 36 ⚡ no-time-limit energy across the year
-- Free users earn no-time-limit energy only through Feats
+- Free users earn no-time-limit energy through Feats and Mail gifts
+- Persistence: no-time-limit energy granted via Mail gifts is stored server-side per user per language (Supabase `user_energy` table) so it survives reinstalls/device changes. Feat-earned and renewal-bonus energy remain locally tracked for now (see Mail section below for why gifts specifically needed to be server-authoritative).
 
 ### Free vs Premium energy summary
 
@@ -497,13 +499,47 @@ Quiz reuses the Review setup sheet with a reduced set of controls — no mode se
 
 ---
 
+## Mail (Energy Gifts)
+
+Admin can send a one-time no-time-limit energy gift to a specific user's account from the back-office. The user receives it as a Mail item and claims it manually — same "claim to receive" pattern as Feats/Challenges, just admin-initiated instead of milestone-triggered.
+
+### Reasons (MVP)
+Fixed category the admin picks per gift — drives no user-facing behavior difference, just internal organization/reporting:
+- Maintenance Compensation
+- Sharing Reward
+- Survey Completion
+- Rate App
+- Refund / Favor
+
+> Initial back-office implementation only supports "give a favor to specific users" (admin manually composes and sends to one user at a time). Automated triggers for the other reasons (e.g. auto-sending maintenance compensation to all users, or granting a reward on survey completion) are out of scope for this version — admin sends every gift manually for now.
+
+### Mail card (Profile tab)
+- Same visual pattern as the Challenges card: icon (📬), title "Mail", subtitle, pulse dot, chevron
+- Subtitle: "X new" when unclaimed gifts exist, "Nothing new" otherwise
+- Tapping opens the Mail screen (`/profile/mail`)
+
+### Mail screen (`/profile/mail`)
+- Nav bar: back chevron, title "Mail"
+- List of gifts, newest first. Unclaimed gifts sort above claimed ones (same ordering convention as the Challenges list)
+- Each row: title, reason icon, energy amount (e.g. "+5 ⚡"), sent date, and a Claim button (or "Claimed" if already claimed — same disabled/claimed visual treatment as Feat cards)
+- Tapping Claim credits the energy amount to the user's no-time-limit energy pool for the gift's target language, and shows the same Claim Success sheet used by Challenges (confetti + energy total + "Go activate more content" CTA)
+- Empty state: "No mail yet" message
+- Expired gifts (past `expires_at`, if the admin set one): shown greyed out, not claimable, labelled "Expired"
+
+### Data & persistence
+- Gifts are stored server-side (Supabase `gifts` table) — one row per sent gift, targeted at one user and one language
+- Claiming is atomic (a single Postgres function checks the gift is still unclaimed and not expired, marks it claimed, and credits `user_energy` in the same transaction) — prevents double-claiming from a slow network retry or multiple devices
+- This is the first no-time-limit energy source that's server-authoritative rather than local/on-device (see Energy Mechanic → No-time-limit energy)
+
+---
+
 ## Subscription & Premium
 
 ### Free vs premium content rule
 - Lv. 1 and Lv. 2 of every deck are free for all users
 - Lv. 3 onwards require an active subscription (crown lock icon)
 - Admin can configure the free/premium split per deck
-- Premium does not bypass the progression system — users must still complete each level sequentially
+- No progression lock to bypass — free and premium users alike can open any pack within their tier in any order (see "Pack locking")
 
 ### Premium benefits summary
 
